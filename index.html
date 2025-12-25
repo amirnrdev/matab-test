@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>مطب یار - سیستم نوبت دهی</title>
+    <!-- Tailwind CSS (CDN for quick setup, works fine with Vite) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              stone: {
+                850: '#1c1917',
+                950: '#0c0a09',
+              }
+            },
+            fontFamily: {
+              vazir: ['Vazirmatn', 'sans-serif'],
+            }
+          }
+        }
+      }
+    </script>
+    <!-- Vazirmatn Font -->
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
+    <style>
+      :root {
+        --ease-spring: cubic-bezier(0.4, 0, 0.2, 1);
+        --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+      }
+
+      body {
+        font-family: 'Vazirmatn', sans-serif;
+        margin: 0;
+        padding: 0;
+        overflow-x: hidden;
+        transition: background-color 0.5s ease, color 0.3s ease;
+      }
+      
+      .dark body {
+        color: #f5f5f4; 
+      }
+
+      ::-webkit-scrollbar { width: 6px; height: 6px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 4px; }
+      ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.3); }
+      .dark ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); }
+      .dark ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
+
+      /* --- UNIFIED THEME COLORS --- */
+      .bg-theme-foundation { background-color: #F0E7DB; color: #4A453E; }
+      .dark .bg-theme-foundation { background-color: #292524; color: #E7E5E4; }
+
+      .bg-theme-creative { background-color: #F5D0C2; color: #5C3D35; }
+      .dark .bg-theme-creative { background-color: #450a0a; color: #fecaca; }
+
+      .bg-theme-fluid { background-color: #C3D8E0; color: #2D4049; }
+      .dark .bg-theme-fluid { background-color: #172554; color: #bfdbfe; }
+
+      .bg-theme-nature { background-color: #CCE3DE; color: #2C423D; }
+      .dark .bg-theme-nature { background-color: #064e3b; color: #a7f3d0; }
+
+      .bg-theme-urban { background-color: #CFCBD9; color: #3E3B45; }
+      .dark .bg-theme-urban { background-color: #3b0764; color: #e9d5ff; }
+      
+      .bg-theme-dark { 
+        background-color: #0F172A; 
+        color: #E2E8F0; 
+        background-image: radial-gradient(#1e293b 1px, transparent 1px);
+        background-size: 20px 20px;
+      }
+      .dark .bg-theme-dark { 
+        background-color: #020617; 
+        color: #f8fafc; 
+        background-image: radial-gradient(#1e293b 1px, transparent 1px);
+      }
+
+      .bg-theme-rose { background-color: #E6B4BA; color: #881337; }
+      .dark .bg-theme-rose { background-color: #881337; color: #fce7f3; }
+      
+      .bg-theme-sky { background-color: #A3C9DF; color: #0c4a6e; }
+      .dark .bg-theme-sky { background-color: #0c4a6e; color: #e0f2fe; }
+      
+      .bg-theme-gray { background-color: #BCC5D1; color: #1F2937; }
+      .dark .bg-theme-gray { background-color: #18181b; color: #e4e4e7; }
+      
+      .bg-theme-indigo { background-color: #B6C0E8; color: #312e81; }
+      .dark .bg-theme-indigo { background-color: #312e81; color: #e0e7ff; }
+      
+      .bg-theme-amber { background-color: #E8D5B5; color: #78350f; }
+      .dark .bg-theme-amber { background-color: #451a03; color: #fef3c7; }
+      
+      .bg-theme-stone { background-color: #C5BFB9; color: #1c1917; }
+      .dark .bg-theme-stone { background-color: #1c1917; color: #e7e5e4; }
+      
+      .bg-theme-slate { background-color: #2E5A44; color: #ecfdf5; }
+      .dark .bg-theme-slate { background-color: #022c22; color: #d1fae5; }
+      
+      .bg-theme-fuchsia { background-color: #DDAADD; color: #701a75; }
+      .dark .bg-theme-fuchsia { background-color: #701a75; color: #fae8ff; }
+      
+      .bg-theme-cream { background-color: #E3D2BC; color: #431407; }
+      .dark .bg-theme-cream { background-color: #422006; color: #fffbeb; }
+
+      .bg-theme-grid {
+        background-color: #e7e5e4; 
+        color: #1c1917;
+        background-image: radial-gradient(#a8a29e 1px, transparent 1px);
+        background-size: 30px 30px;
+        background-attachment: fixed;
+      }
+      .dark .bg-theme-grid {
+        background-color: #0c0a09;
+        color: #e7e5e4;
+        background-image: radial-gradient(#292524 1px, transparent 1px);
+      }
+
+      /* --- UNIFIED GLASS SYSTEM V3.2 (Reduced Blur for Visibility) --- */
+      
+      .glass-base, .glass-panel, .glass-card {
+        background-color: rgba(255, 255, 255, 0.65); 
+        backdrop-filter: blur(12px) saturate(180%);
+        -webkit-backdrop-filter: blur(12px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.6);
+        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05);
+        transition: all 0.4s var(--ease-out-quart);
+      }
+
+      .dark .glass-base, .dark .glass-panel, .dark .glass-card {
+        background-color: rgba(20, 20, 25, 0.65); 
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        color: #fafafa;
+      }
+
+      .glass-hover { cursor: pointer; will-change: transform, background-color; }
+      
+      .glass-hover:hover {
+        background-color: rgba(255, 255, 255, 0.85); 
+        transform: translateY(-4px) scale(1.01); 
+        border-color: rgba(255, 255, 255, 1);
+        box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+      }
+      
+      .dark .glass-hover:hover {
+        background-color: rgba(30, 30, 35, 0.85);
+        border-color: rgba(255, 255, 255, 0.15);
+        box-shadow: 0 15px 35px rgba(0,0,0,0.5);
+      }
+
+      .glass-panel { border-radius: 32px; }
+      .glass-card { border-radius: 24px; }
+
+      .glass-input {
+        background-color: rgba(255, 255, 255, 0.65); 
+        border: 1px solid rgba(0,0,0, 0.08);
+        color: #1c1917;
+        transition: all 0.3s ease;
+      }
+      .dark .glass-input {
+        background-color: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: #ffffff;
+      }
+      .glass-input:focus {
+        background-color: rgba(255, 255, 255, 0.95);
+        border-color: #57534e; 
+        box-shadow: 0 0 0 4px rgba(87, 83, 78, 0.05);
+        transform: translateY(-1px);
+      }
+      .dark .glass-input:focus {
+        background-color: rgba(255, 255, 255, 0.2);
+        border-color: #e5e5e5;
+        box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.05);
+      }
+      
+      @keyframes fadeScaleIn {
+        0% { opacity: 0; transform: scale(0.97) translateY(10px); }
+        100% { opacity: 1; transform: scale(1) translateY(0); }
+      }
+      .animate-mac-window { animation: fadeScaleIn 0.6s var(--ease-out-quart) forwards; }
+      .animate-item { opacity: 0; animation: fadeScaleIn 0.5s var(--ease-out-quart) forwards; }
+      @keyframes popIn {
+        0% { opacity: 0; transform: scale(0.9); }
+        70% { transform: scale(1.05); }
+        100% { opacity: 1; transform: scale(1); }
+      }
+      .animate-pop { animation: popIn 0.4s var(--ease-out-quart) forwards; }
+      @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .animate-fade-in-up { animation: fadeInUp 0.6s ease-out forwards; }
+      
+      .font-vazir { font-family: 'Vazirmatn', sans-serif; }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "vite": "https://esm.sh/vite@^7.3.0",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.89.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "lucide-react": "https://esm.sh/lucide-react@^0.562.0"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
