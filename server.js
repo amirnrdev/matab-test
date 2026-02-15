@@ -2,13 +2,22 @@ import express from 'express';
 import sqlite3 from 'sqlite3';
 import cors from 'cors';
 import os from 'os'; // Added to detect IP address
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Fix for ES Modules path resolution
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = 3001;
+const PORT = process.env.PORT || 3001; // Support environment port for hosting
 
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Serve Static Files (Frontend) - IMPORTANT FOR PRODUCTION
+app.use(express.static(path.join(__dirname, 'dist')));
 
 // Database Connection (Creates file 'matab_yar.db' automatically)
 const db = new sqlite3.Database('./matab_yar.db', (err) => {
@@ -411,6 +420,12 @@ app.put('/api/medical_records/:id', (req, res) => {
     );
 });
 
+// --- SPA Fallback for Production ---
+// This must be the LAST route.
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+});
+
 // Bind to 0.0.0.0 to allow access from local network
 app.listen(PORT, '0.0.0.0', () => {
     // Detect and print the local IP address for the user
@@ -430,8 +445,8 @@ app.listen(PORT, '0.0.0.0', () => {
 
     console.log('\n==================================================');
     console.log(`🚀 APPLICATION IS READY!`);
-    console.log(`💻 On this PC:      http://localhost:5173`);
-    console.log(`📱 On your Mobile:  http://${lanIp}:5173`);
+    console.log(`💻 On this PC:      http://localhost:${PORT}`);
+    console.log(`📱 On your Mobile:  http://${lanIp}:${PORT}`);
     console.log('==================================================');
     console.log(`(NOTE: If mobile cannot connect, turn off Windows Firewall)\n`);
 });

@@ -9,9 +9,22 @@ import {
 } from '../types';
 
 // Dynamic API URL Logic
-// 1. Priority: Custom URL set by user (e.g., Ngrok for remote access)
-// 2. Fallback: Auto-detected hostname (Local Network)
+// In production (when served by node), we use relative path '/api'.
+// In development, we fallback to localhost or custom IP.
 const getBaseUrl = () => {
+  try {
+    // Safe check for import.meta.env using a try-catch block and explicit checks
+    // This prevents "Cannot read properties of undefined (reading 'PROD')"
+    // @ts-ignore
+    if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.PROD) {
+      return '/api';
+    }
+  } catch (e) {
+    // Ignore any environment access errors
+    console.warn('Environment check failed, falling back to development URL logic.');
+  }
+
+  // Development Fallback
   if (typeof window !== 'undefined') {
      const custom = localStorage.getItem('MATAB_API_URL');
      if (custom) return custom;

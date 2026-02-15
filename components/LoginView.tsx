@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../services/mockDb';
 import { Personnel, ThemeType } from '../types';
-import { Stethoscope, ChevronDown, User, Moon, Sun, ShieldCheck, LogIn, Lock, Home, Wifi, WifiOff, Settings } from 'lucide-react';
+import { Stethoscope, ChevronDown, User, Moon, Sun, ShieldCheck, LogIn, Lock, Home, Wifi, WifiOff } from 'lucide-react';
 
 interface LoginViewProps {
   onLogin: (user: Personnel) => void;
@@ -18,13 +18,10 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onBack, isDarkMode, togg
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [isConnected, setIsConnected] = useState<boolean | null>(null);
-  const [showApiConfig, setShowApiConfig] = useState(false);
-  const [customApiUrl, setCustomApiUrl] = useState('');
 
   useEffect(() => {
     // Check connection to API on mount for diagnostics
     db.checkConnection().then(setIsConnected);
-    setCustomApiUrl(db.getApiUrl().replace('/api', ''));
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -45,15 +42,6 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onBack, isDarkMode, togg
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleSaveApi = () => {
-      if (customApiUrl) {
-          db.setApiUrl(customApiUrl);
-      } else {
-          db.resetApiUrl();
-      }
-      setShowApiConfig(false);
   };
 
   return (
@@ -172,40 +160,12 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onBack, isDarkMode, togg
         )}
 
         {/* Connection Diagnostics Footer */}
-        <div className="absolute bottom-2 left-0 right-0 flex justify-center items-center gap-2 animate-item" style={{animationDelay: '500ms'}}>
+        <div className="absolute bottom-2 left-0 right-0 text-center animate-item" style={{animationDelay: '500ms'}}>
             <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-mono border ${isConnected ? 'bg-green-50/50 text-green-600 border-green-200' : 'bg-red-50/50 text-red-600 border-red-200'} opacity-60 hover:opacity-100 transition-opacity`}>
                {isConnected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
-               <span dir="ltr">{db.getApiUrl().replace('http://', '').replace('/api', '')}</span>
+               <span dir="ltr">{db.getApiUrl().replace('http://', '')}</span>
             </div>
-            
-            <button 
-               onClick={() => setShowApiConfig(true)}
-               className="p-1 rounded-md bg-stone-100 dark:bg-white/10 text-stone-500 dark:text-stone-400 hover:text-stone-800 dark:hover:text-stone-200 transition-colors opacity-60 hover:opacity-100"
-               title="تنظیمات سرور"
-            >
-               <Settings className="w-3 h-3" />
-            </button>
         </div>
-        
-        {/* API Config Modal */}
-        {showApiConfig && (
-            <div className="absolute inset-0 z-50 glass-panel rounded-3xl flex flex-col items-center justify-center p-6 animate-pop bg-white/90 dark:bg-stone-900/95">
-                <h3 className="font-bold text-stone-800 dark:text-stone-100 mb-4 text-center">آدرس سرور (Ngrok/Local)</h3>
-                <p className="text-[10px] text-stone-500 mb-4 text-center">اگر از Ngrok استفاده می‌کنید، آدرس کامل (http/https) را وارد کنید.</p>
-                <input 
-                   type="text" 
-                   dir="ltr"
-                   value={customApiUrl}
-                   onChange={(e) => setCustomApiUrl(e.target.value)}
-                   className="w-full p-3 glass-input rounded-xl text-xs font-mono mb-4 text-center"
-                   placeholder="http://localhost:3001"
-                />
-                <div className="flex gap-2 w-full">
-                    <button onClick={() => setShowApiConfig(false)} className="flex-1 py-2 rounded-xl text-stone-500 hover:bg-stone-100 font-bold text-xs">لغو</button>
-                    <button onClick={handleSaveApi} className="flex-1 py-2 rounded-xl bg-stone-800 text-white font-bold text-xs">ذخیره و بارگذاری</button>
-                </div>
-            </div>
-        )}
 
       </div>
     </div>
