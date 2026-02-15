@@ -34,7 +34,7 @@ const PatientList: React.FC<PatientListProps> = ({ onViewRecords }) => {
           <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-stone-400 w-5 h-5 group-focus-within:text-stone-600 transition-colors" />
           <input 
             type="text" 
-            placeholder="جستجو (نام، کد ملی)..." 
+            placeholder="جستجو..." 
             className="w-full pr-12 pl-4 py-3 glass-input rounded-2xl outline-none text-sm transition-all text-stone-700 dark:text-stone-200"
             onChange={(e) => setSearchTerm(e.target.value)}
           />

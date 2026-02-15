@@ -1,4 +1,3 @@
-import { createClient } from '@supabase/supabase-js';
 import { 
   Doctor, 
   Patient, 
@@ -9,335 +8,353 @@ import {
   Medicine
 } from '../types';
 
-// --- SUPABASE CONFIGURATION ---
-// IMPORTANT: Replace these with YOUR actual Supabase project URL and Key.
-// You can find these in your Supabase Dashboard -> Project Settings -> API.
-const SUPABASE_URL = 'https://wafuszdmmeincramoqjy.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndhZnVzemRtbWVpbmNyYW1vcWp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NTcyOTksImV4cCI6MjA4MjIzMzI5OX0.B8GKIF2BbzFeAms2VNu40O2kt0PHyPYNOoVXXDY_sp4';
-
-// Check if Supabase is properly configured
-const isOnline = SUPABASE_URL.startsWith('https') && !SUPABASE_URL.includes('YOUR_SUPABASE');
-const supabase = isOnline ? createClient(SUPABASE_URL, SUPABASE_KEY) : null;
-
-// --- FALLBACK MOCK DATA (Only used if Supabase keys are missing or offline) ---
-const DEFAULT_DOCTORS: Doctor[] = [
-  { doctor_id: 1, first_name: "علی", last_name: "رضایی (آفلاین)", national_code: "0011223344", specialty: "متخصص قلب", medical_system_number: "12345", work_days: "شنبه,دوشنبه", password: "123" }
-];
-
-// --- UTILS ---
-export const utils = {
-  isValidNationalCode: (code: string): boolean => {
-    if (!/^\d{10}$/.test(code)) return false;
-    const check = +code[9];
-    const sum = code.split('').slice(0, 9).reduce((acc, x, i) => acc + +x * (10 - i), 0) % 11;
-    return sum < 2 ? check === sum : check === 11 - sum;
-  },
-  
-  isValidPhoneNumber: (phone: string): boolean => {
-    return /^09\d{9}$/.test(phone);
+// Dynamic API URL Logic
+// 1. Priority: Custom URL set by user (e.g., Ngrok for remote access)
+// 2. Fallback: Auto-detected hostname (Local Network)
+const getBaseUrl = () => {
+  if (typeof window !== 'undefined') {
+     const custom = localStorage.getItem('MATAB_API_URL');
+     if (custom) return custom;
+     return `http://${window.location.hostname}:3001/api`;
   }
+  return 'http://localhost:3001/api';
 };
 
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+const API_URL = getBaseUrl();
 
-// --- DB ADAPTER ---
-export const db = {
-  
-  // --- CONNECTION CHECK ---
-  checkConnection: async (): Promise<boolean> => {
-    if (isOnline && supabase) {
-      try {
-         // Try to fetch a simple count from personnel to verify connection
-         const { error } = await supabase.from('personnel').select('national_code', { count: 'exact', head: true });
-         return !error;
-      } catch (e) {
-         console.error("Connection check failed:", e);
-         return false;
-      }
+// --- MOCK DATA STORE (Fallback for Offline Mode) ---
+const localStore = {
+  doctors: [
+    { doctor_id: 1, first_name: 'آرش', last_name: 'همتی', national_code: '1234567890', specialty: 'قلب و عروق', medical_system_number: '12345', work_days: 'شنبه,دوشنبه,چهارشنبه', password: '1234567890' },
+    { doctor_id: 2, first_name: 'سارا', last_name: 'جلالی', national_code: '0987654321', specialty: 'مغز و اعصاب', medical_system_number: '67890', work_days: 'یکشنبه,سه‌شنبه', password: '0987654321' }
+  ] as Doctor[],
+  patients: [
+    { patient_id: 1, first_name: 'محمد', last_name: 'رضایی', national_code: '1111111111', birth_date: '1365/01/01', phone_number: '09121234567', gender: 'Male' },
+    { patient_id: 2, first_name: 'زهرا', last_name: 'کریمی', national_code: '2222222222', birth_date: '1370/06/15', phone_number: '09351234567', gender: 'Female' }
+  ] as Patient[],
+  personnel: [
+    { national_code: 'admin', first_name: 'مدیر', last_name: 'سیستم', role: 'مدیر', password: '123' },
+    { national_code: '100', first_name: 'مینا', last_name: 'علوی', role: 'منشی', password: '100' },
+    { national_code: '200', first_name: 'پرستار', last_name: 'نمونه', role: 'پرستار', password: '200' }
+  ] as Personnel[],
+  medicines: [
+    { medicine_id: 1, medicine_name: 'استامینوفن', dosage_medicine_name: '325mg', dosage_count: 10, consumption_time: 'هر 6 ساعت', description: 'مسکن' },
+    { medicine_id: 2, medicine_name: 'آموکسی‌سیلین', dosage_medicine_name: '500mg', dosage_count: 20, consumption_time: 'هر 8 ساعت', description: 'آنتی‌بیوتیک' }
+  ] as Medicine[],
+  appointments: [] as Appointment[],
+  records: [] as MedicalRecord[]
+};
+
+// Helper: Try fetch, if fail (NetworkError), use fallback
+async function tryFetch<T>(url: string, options: RequestInit | undefined, fallback: () => Promise<T> | T): Promise<T> {
+  try {
+    const res = await fetch(url, options);
+    if (!res.ok) {
+      // If server responds with error (e.g. 401, 500), throw it
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || res.statusText);
     }
-    return false;
+    // Safer parsing: handle empty response bodies
+    const text = await res.text();
+    return text ? JSON.parse(text) : null;
+  } catch (err: any) {
+    // If connection failed entirely (Network Error / Failed to fetch), use fallback
+    if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
+       console.warn(`Server unreachable (${url}), using mock fallback.`);
+       return await fallback();
+    }
+    throw err;
+  }
+}
+
+export const db = {
+  getApiUrl: () => API_URL, // Exposed for UI Diagnostics
+  
+  // New methods to manage API URL from UI
+  setApiUrl: (url: string) => {
+      // Ensure URL ends with /api if not present, but handle base urls gracefully
+      let cleanUrl = url.replace(/\/$/, ""); 
+      if (!cleanUrl.endsWith('/api')) {
+          cleanUrl += '/api';
+      }
+      localStorage.setItem('MATAB_API_URL', cleanUrl);
+      location.reload();
+  },
+  
+  resetApiUrl: () => {
+      localStorage.removeItem('MATAB_API_URL');
+      location.reload();
+  },
+
+  checkConnection: async (): Promise<boolean> => {
+    try {
+        // Simple ping
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000); // 3s timeout
+        await fetch(`${API_URL}/doctors`, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        return true;
+    } catch {
+        return false;
+    }
   },
 
   // --- AUTH ---
-  login: async (username: string, role: string, passwordAttempt: string): Promise<Personnel | null> => {
-      if (isOnline && supabase) {
-          // 1. Try Personnel Table
-          let { data: person, error } = await supabase
-            .from('personnel')
-            .select('*')
-            .eq('national_code', username)
-            .single();
-          
-          if (error && error.code !== 'PGRST116') console.error('Auth Error Personnel:', error);
-
-          // 2. If not found, Try Doctors Table
-          let actualRole = '';
-          let user: any = person;
-
-          if (user) {
-              actualRole = user.role;
-          } else {
-              const { data: doc, error: docError } = await supabase
-                .from('doctors')
-                .select('*')
-                .eq('national_code', username)
-                .single();
-              
-              if (doc) {
-                  user = doc;
-                  actualRole = 'پزشک';
-              }
-          }
-
-          if (!user) throw new Error('کاربری با این مشخصات یافت نشد.');
-          if (user.password !== passwordAttempt) throw new Error('رمز عبور اشتباه است.');
-          if (role !== actualRole) throw new Error(`نقش شما ${actualRole} است، لطفا گزینه صحیح را انتخاب کنید.`);
-
-          return { ...user, role: actualRole };
-      } else {
-          // Mock Fallback
-          await delay(500);
-          if (username === 'admin' && passwordAttempt === '123456') 
-            return { national_code: 'admin', first_name: 'مدیر', last_name: 'آفلاین', role: 'مدیر', password: '123456' };
-          throw new Error("اتصال به دیتابیس برقرار نیست و کاربر تست یافت نشد.");
-      }
+  login: async (username: string, password: string, role: string): Promise<Personnel | null> => {
+    return tryFetch(`${API_URL}/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password, role })
+    }, () => {
+        // Fallback Logic
+        const p = localStore.personnel.find(u => u.national_code === username && u.password === password);
+        if (p) {
+             if (p.role !== role) throw new Error('نقش انتخاب شده صحیح نیست (آفلاین)');
+             return p;
+        }
+        const d = localStore.doctors.find(u => u.national_code === username && u.password === password);
+        if (d) {
+             if (role !== 'پزشک') throw new Error('نقش شما پزشک است (آفلاین)');
+             return { ...d, role: 'پزشک' } as unknown as Personnel;
+        }
+        throw new Error('نام کاربری یا رمز عبور اشتباه است (حالت آفلاین)');
+    });
   },
 
   updateCredentials: async (currentNationalCode: string, newNationalCode: string, newPassword: string): Promise<Personnel> => {
-      if (isOnline && supabase) {
-          // Try updating personnel
-          let { data, error } = await supabase
-            .from('personnel')
-            .update({ national_code: newNationalCode, password: newPassword })
-            .eq('national_code', currentNationalCode)
-            .select()
-            .single();
-          
-          if (!data) {
-             // Try updating doctor
-             const { data: docData, error: docError } = await supabase
-                .from('doctors')
-                .update({ national_code: newNationalCode, password: newPassword })
-                .eq('national_code', currentNationalCode)
-                .select()
-                .single();
-             
-             if (docData) return { ...docData, role: 'پزشک' };
-          } else {
-             return data;
-          }
-          throw new Error("خطا در بروزرسانی اطلاعات.");
-      }
-      throw new Error("در حالت آفلاین امکان تغییر رمز وجود ندارد.");
+      return tryFetch(`${API_URL}/update-credentials`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentNationalCode, newNationalCode, newPassword })
+    }, () => {
+        const pIndex = localStore.personnel.findIndex(u => u.national_code === currentNationalCode);
+        if (pIndex !== -1) {
+            localStore.personnel[pIndex] = { ...localStore.personnel[pIndex], national_code: newNationalCode, password: newPassword };
+            return localStore.personnel[pIndex];
+        }
+        throw new Error('کاربر یافت نشد');
+    });
   },
 
   // --- DOCTORS ---
   getDoctors: async (): Promise<Doctor[]> => {
-    if (isOnline && supabase) {
-        const { data, error } = await supabase.from('doctors').select('*');
-        if (error) throw error;
-        return data || [];
-    }
-    return DEFAULT_DOCTORS;
+    return tryFetch(`${API_URL}/doctors`, undefined, () => [...localStore.doctors]);
   },
 
   createDoctor: async (doctor: Omit<Doctor, 'doctor_id'>): Promise<Doctor> => {
-    if (isOnline && supabase) {
-        const { data, error } = await supabase.from('doctors').insert([doctor]).select().single();
-        if (error) throw error;
-        return data;
-    }
-    return { ...doctor, doctor_id: 999 } as Doctor;
+     return tryFetch(`${API_URL}/doctors`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(doctor)
+    }, () => {
+        const newDoc = { ...doctor, doctor_id: Math.floor(Math.random() * 10000), password: doctor.national_code } as Doctor;
+        localStore.doctors.push(newDoc);
+        return newDoc;
+    });
   },
 
   deleteDoctor: async (id: number) => {
-    if (isOnline && supabase) {
-        await supabase.from('doctors').delete().eq('doctor_id', id);
-    }
+     return tryFetch(`${API_URL}/doctors/${id}`, { method: 'DELETE' }, () => {
+         localStore.doctors = localStore.doctors.filter(d => d.doctor_id !== id);
+     });
   },
 
   // --- PATIENTS ---
   getPatients: async (): Promise<Patient[]> => {
-    if (isOnline && supabase) {
-        const { data, error } = await supabase.from('patients').select('*');
-        if (error) throw error;
-        return data || [];
-    }
-    return [];
+    return tryFetch(`${API_URL}/patients`, undefined, () => [...localStore.patients]);
   },
 
   findPatientByNationalCode: async (code: string): Promise<Patient | undefined> => {
-      if (isOnline && supabase) {
-          const { data, error } = await supabase.from('patients').select('*').eq('national_code', code).single();
-          if (error && error.code !== 'PGRST116') return undefined;
-          return data || undefined;
-      }
-      return undefined;
+    return tryFetch(`${API_URL}/patients/${code}`, undefined, () => {
+        return localStore.patients.find(p => p.national_code === code);
+    });
   },
 
   createPatient: async (patient: Omit<Patient, 'patient_id'>): Promise<Patient> => {
-      if (isOnline && supabase) {
-          const { data, error } = await supabase.from('patients').insert([patient]).select().single();
-          if (error) throw error;
-          return data;
-      }
-      return { ...patient, patient_id: 123 } as Patient;
+    return tryFetch(`${API_URL}/patients`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patient)
+    }, () => {
+        const newPatient = { ...patient, patient_id: Math.floor(Math.random() * 10000) };
+        localStore.patients.push(newPatient);
+        return newPatient;
+    });
   },
 
   updatePatient: async (updatedPatient: Patient) => {
-      if (isOnline && supabase) {
-          await supabase.from('patients').update(updatedPatient).eq('patient_id', updatedPatient.patient_id);
-      }
+    return tryFetch(`${API_URL}/patients/${updatedPatient.patient_id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedPatient)
+    }, () => {
+        const idx = localStore.patients.findIndex(p => p.patient_id === updatedPatient.patient_id);
+        if (idx !== -1) localStore.patients[idx] = updatedPatient;
+    });
   },
 
   // --- PERSONNEL ---
   getPersonnel: async (): Promise<Personnel[]> => {
-    if (isOnline && supabase) {
-        const { data, error } = await supabase.from('personnel').select('*');
-        if (error) throw error;
-        return data || [];
-    }
-    return [];
+    return tryFetch(`${API_URL}/personnel`, undefined, () => [...localStore.personnel]);
   },
 
   createPersonnel: async (person: Personnel): Promise<Personnel> => {
-      if (isOnline && supabase) {
-          const { data, error } = await supabase.from('personnel').insert([person]).select().single();
-          if (error) throw error;
-          return data;
-      }
-      return person;
+    return tryFetch(`${API_URL}/personnel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(person)
+    }, () => {
+        const newP = { ...person, password: person.national_code };
+        localStore.personnel.push(newP);
+        return newP;
+    });
+  },
+
+  updatePersonnel: async (person: Personnel) => {
+    return tryFetch(`${API_URL}/personnel/${person.national_code}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(person)
+    }, () => {
+        const idx = localStore.personnel.findIndex(p => p.national_code === person.national_code);
+        if(idx !== -1) localStore.personnel[idx] = person;
+    });
   },
 
   deletePersonnel: async (nationalCode: string) => {
-      if (isOnline && supabase) {
-          await supabase.from('personnel').delete().eq('national_code', nationalCode);
-      }
+    return tryFetch(`${API_URL}/personnel/${nationalCode}`, { method: 'DELETE' }, () => {
+        localStore.personnel = localStore.personnel.filter(p => p.national_code !== nationalCode);
+    });
   },
 
   // --- MEDICINES ---
   getMedicines: async (): Promise<Medicine[]> => {
-      if (isOnline && supabase) {
-          const { data, error } = await supabase.from('medicines').select('*');
-          if (error) throw error;
-          return data || [];
-      }
-      return [];
+    return tryFetch(`${API_URL}/medicines`, undefined, () => [...localStore.medicines]);
   },
 
   createMedicine: async (medicine: Omit<Medicine, 'medicine_id'>): Promise<Medicine> => {
-      if (isOnline && supabase) {
-          const { data, error } = await supabase.from('medicines').insert([medicine]).select().single();
-          if (error) throw error;
-          return data;
-      }
-      return { ...medicine, medicine_id: 111 };
+    return tryFetch(`${API_URL}/medicines`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(medicine)
+    }, () => {
+        const newM = { ...medicine, medicine_id: Math.floor(Math.random() * 10000) };
+        localStore.medicines.push(newM);
+        return newM;
+    });
   },
 
   deleteMedicine: async (id: number) => {
-      if (isOnline && supabase) {
-          await supabase.from('medicines').delete().eq('medicine_id', id);
-      }
-  },
-
-  // --- MEDICAL RECORDS ---
-  getMedicalRecords: async (): Promise<MedicalRecord[]> => {
-    if (isOnline && supabase) {
-        // Fetch relations. Note: Personnel relation is manual due to schema limitations.
-        const { data, error } = await supabase
-            .from('medical_records')
-            .select(`
-                *,
-                patient:patients(*),
-                doctor:doctors(*),
-                medicine:medicines(*)
-            `);
-        
-        if (error) throw error;
-
-        // Manually fetch personnel info to map names
-        const { data: personnelList } = await supabase.from('personnel').select('national_code, first_name, last_name');
-        
-        return data.map((r: any) => ({
-            ...r,
-            personnel: personnelList?.find((p: any) => p.national_code === r.personnel_national_code)
-        })) || [];
-    }
-    return [];
-  },
-
-  createMedicalRecord: async (record: Omit<MedicalRecord, 'record_id'>) => {
-      if (isOnline && supabase) {
-          // Remove expanded objects if any, keep only IDs
-          const { patient, doctor, medicine, personnel, ...cleanRecord } = record as any;
-          const { data, error } = await supabase.from('medical_records').insert([cleanRecord]).select().single();
-          if (error) throw error;
-          return data;
-      }
-  },
-
-  updateMedicalRecord: async (updatedRecord: MedicalRecord) => {
-      if (isOnline && supabase) {
-          const { patient, doctor, medicine, personnel, ...cleanRecord } = updatedRecord as any;
-          await supabase.from('medical_records').update(cleanRecord).eq('record_id', updatedRecord.record_id);
-      }
+    return tryFetch(`${API_URL}/medicines/${id}`, { method: 'DELETE' }, () => {
+        localStore.medicines = localStore.medicines.filter(m => m.medicine_id !== id);
+    });
   },
 
   // --- APPOINTMENTS ---
   getAppointments: async (): Promise<Appointment[]> => {
-    if (isOnline && supabase) {
-        const { data, error } = await supabase
-            .from('appointments')
-            .select(`
-                *,
-                patient:patients(*),
-                doctor:doctors(*)
-            `)
-            .order('appointment_id', { ascending: false });
-        if (error) throw error;
-        return data || [];
-    }
-    return [];
+    return tryFetch(`${API_URL}/appointments`, undefined, () => {
+        // Hydrate relations for mock view
+        return localStore.appointments.map(a => ({
+            ...a,
+            patient: localStore.patients.find(p => p.patient_id === a.patient_id),
+            doctor: localStore.doctors.find(d => d.doctor_id === a.doctor_id)
+        })).sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    });
+  },
+
+  getTakenSlots: async (doctorId: number, date: string): Promise<string[]> => {
+    // Reusing getAppointments logic for consistency
+    const all = await db.getAppointments();
+    return all
+      .filter(a => a.doctor_id === doctorId && a.reserved_date === date && a.status !== AppointmentStatus.Canceled)
+      .map(a => a.reserved_time);
   },
 
   checkAvailability: async (doctorId: number, date: string, time: string): Promise<boolean> => {
-      if (isOnline && supabase) {
-          const { data, error } = await supabase
-            .from('appointments')
-            .select('appointment_id')
-            .eq('doctor_id', doctorId)
-            .eq('reserved_date', date)
-            .eq('reserved_time', time)
-            .neq('status', 'Canceled'); // Ignore canceled appointments
-          
-          if (error) return false;
-          return data.length === 0;
-      }
-      return true;
+    const taken = await db.getTakenSlots(doctorId, date);
+    return !taken.includes(time);
   },
 
   createAppointment: async (appt: Omit<Appointment, 'appointment_id' | 'created_at' | 'status' | 'tracking_code'>): Promise<Appointment | null> => {
-      const isAvailable = await db.checkAvailability(appt.doctor_id, appt.reserved_date, appt.reserved_time);
-      if (!isAvailable) throw new Error("این زمان قبلاً رزرو شده است.");
-      
-      if (isOnline && supabase) {
-          const newAppt = {
-              ...appt,
-              tracking_code: 'TRK-' + Math.floor(100000 + Math.random() * 900000),
-              status: AppointmentStatus.Pending
-              // created_at is handled by DB default
-          };
-          
-          const { data, error } = await supabase.from('appointments').insert([newAppt]).select().single();
-          if (error) throw error;
-          return data;
-      }
-      return null;
+    return tryFetch(`${API_URL}/appointments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...appt, created_at: new Date().toISOString() })
+    }, () => {
+         // Check availability in mock
+         const isTaken = localStore.appointments.some(a => 
+             a.doctor_id === appt.doctor_id && 
+             a.reserved_date === appt.reserved_date && 
+             a.reserved_time === appt.reserved_time &&
+             a.status !== AppointmentStatus.Canceled
+         );
+         if (isTaken) throw new Error('این زمان قبلاً رزرو شده است (آفلاین).');
+
+         const newAppt: Appointment = {
+             appointment_id: Math.floor(Math.random() * 10000),
+             tracking_code: 'OFF-' + Math.floor(100000 + Math.random() * 900000),
+             patient_id: appt.patient_id,
+             doctor_id: appt.doctor_id,
+             reserved_date: appt.reserved_date,
+             reserved_time: appt.reserved_time,
+             status: AppointmentStatus.Pending,
+             created_at: new Date().toISOString()
+         };
+         localStore.appointments.push(newAppt);
+         return newAppt;
+    });
   },
 
   updateAppointmentStatus: async (id: number, status: AppointmentStatus) => {
-      if (isOnline && supabase) {
-          await supabase.from('appointments').update({ status }).eq('appointment_id', id);
-      }
+    return tryFetch(`${API_URL}/appointments/${id}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+    }, () => {
+        const idx = localStore.appointments.findIndex(a => a.appointment_id === id);
+        if (idx !== -1) localStore.appointments[idx].status = status;
+    });
+  },
+
+  // --- MEDICAL RECORDS ---
+  getMedicalRecords: async (): Promise<MedicalRecord[]> => {
+    return tryFetch(`${API_URL}/medical_records`, undefined, () => {
+         return localStore.records.map(r => ({
+             ...r,
+             patient: localStore.patients.find(p => p.patient_id === r.patient_id),
+             doctor: localStore.doctors.find(d => d.doctor_id === r.doctor_id),
+             medicine: localStore.medicines.find(m => m.medicine_id === r.medicine_id),
+             personnel: localStore.personnel.find(p => p.national_code === r.personnel_national_code)
+         })).sort((a,b) => b.record_id - a.record_id);
+    });
+  },
+
+  createMedicalRecord: async (record: Omit<MedicalRecord, 'record_id'>) => {
+    return tryFetch(`${API_URL}/medical_records`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...record, created_at: new Date().toISOString() })
+    }, () => {
+        const newRecord = { ...record, record_id: Math.floor(Math.random() * 10000) };
+        localStore.records.push(newRecord);
+        return newRecord;
+    });
+  },
+
+  updateMedicalRecord: async (updatedRecord: MedicalRecord) => {
+     return tryFetch(`${API_URL}/medical_records/${updatedRecord.record_id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedRecord)
+    }, () => {
+        const idx = localStore.records.findIndex(r => r.record_id === updatedRecord.record_id);
+        if (idx !== -1) localStore.records[idx] = updatedRecord;
+    });
+  },
+  
+  reset: () => {
+      // In offline mode, reset local store
+      alert("دیتابیس آفلاین بازنشانی شد (رفرش کنید).");
+      location.reload();
   }
 };

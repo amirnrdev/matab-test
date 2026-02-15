@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>مطب یار - سیستم نوبت دهی</title>
-    <!-- Tailwind CSS (CDN for quick setup, works fine with Vite) -->
+    <!-- Tailwind CSS (CDN for quick setup) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -44,6 +44,7 @@
         color: #f5f5f4; 
       }
 
+      /* Custom Scrollbar Styling */
       ::-webkit-scrollbar { width: 6px; height: 6px; }
       ::-webkit-scrollbar-track { background: transparent; }
       ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 4px; }
@@ -51,61 +52,18 @@
       .dark ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); }
       .dark ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
 
-      /* --- UNIFIED THEME COLORS --- */
-      .bg-theme-foundation { background-color: #F0E7DB; color: #4A453E; }
-      .dark .bg-theme-foundation { background-color: #292524; color: #E7E5E4; }
-
-      .bg-theme-creative { background-color: #F5D0C2; color: #5C3D35; }
-      .dark .bg-theme-creative { background-color: #450a0a; color: #fecaca; }
-
-      .bg-theme-fluid { background-color: #C3D8E0; color: #2D4049; }
-      .dark .bg-theme-fluid { background-color: #172554; color: #bfdbfe; }
-
-      .bg-theme-nature { background-color: #CCE3DE; color: #2C423D; }
-      .dark .bg-theme-nature { background-color: #064e3b; color: #a7f3d0; }
-
-      .bg-theme-urban { background-color: #CFCBD9; color: #3E3B45; }
-      .dark .bg-theme-urban { background-color: #3b0764; color: #e9d5ff; }
-      
-      .bg-theme-dark { 
-        background-color: #0F172A; 
-        color: #E2E8F0; 
-        background-image: radial-gradient(#1e293b 1px, transparent 1px);
-        background-size: 20px 20px;
+      /* Utility to hide scrollbar for clean mobile look */
+      .no-scrollbar::-webkit-scrollbar {
+          display: none;
       }
-      .dark .bg-theme-dark { 
-        background-color: #020617; 
-        color: #f8fafc; 
-        background-image: radial-gradient(#1e293b 1px, transparent 1px);
+      .no-scrollbar {
+          -ms-overflow-style: none;  /* IE and Edge */
+          scrollbar-width: none;  /* Firefox */
       }
 
-      .bg-theme-rose { background-color: #E6B4BA; color: #881337; }
-      .dark .bg-theme-rose { background-color: #881337; color: #fce7f3; }
-      
-      .bg-theme-sky { background-color: #A3C9DF; color: #0c4a6e; }
-      .dark .bg-theme-sky { background-color: #0c4a6e; color: #e0f2fe; }
-      
-      .bg-theme-gray { background-color: #BCC5D1; color: #1F2937; }
-      .dark .bg-theme-gray { background-color: #18181b; color: #e4e4e7; }
-      
-      .bg-theme-indigo { background-color: #B6C0E8; color: #312e81; }
-      .dark .bg-theme-indigo { background-color: #312e81; color: #e0e7ff; }
-      
-      .bg-theme-amber { background-color: #E8D5B5; color: #78350f; }
-      .dark .bg-theme-amber { background-color: #451a03; color: #fef3c7; }
-      
-      .bg-theme-stone { background-color: #C5BFB9; color: #1c1917; }
-      .dark .bg-theme-stone { background-color: #1c1917; color: #e7e5e4; }
-      
-      .bg-theme-slate { background-color: #2E5A44; color: #ecfdf5; }
-      .dark .bg-theme-slate { background-color: #022c22; color: #d1fae5; }
-      
-      .bg-theme-fuchsia { background-color: #DDAADD; color: #701a75; }
-      .dark .bg-theme-fuchsia { background-color: #701a75; color: #fae8ff; }
-      
-      .bg-theme-cream { background-color: #E3D2BC; color: #431407; }
-      .dark .bg-theme-cream { background-color: #422006; color: #fffbeb; }
+      /* --- MODERN THEME PALETTES --- */
 
+      /* 1. Techno / Grid (Preserved) */
       .bg-theme-grid {
         background-color: #e7e5e4; 
         color: #1c1917;
@@ -113,11 +71,36 @@
         background-size: 30px 30px;
         background-attachment: fixed;
       }
-      .dark .bg-theme-grid {
+      .dark.bg-theme-grid, .dark .bg-theme-grid {
         background-color: #0c0a09;
         color: #e7e5e4;
         background-image: radial-gradient(#292524 1px, transparent 1px);
       }
+
+      /* 2. Ocean (Blue) */
+      .bg-theme-ocean { background-color: #eff6ff; color: #172554; }
+      .dark.bg-theme-ocean, .dark .bg-theme-ocean { background-color: #172554; color: #dbeafe; }
+
+      /* 3. Mint (Green) */
+      .bg-theme-mint { background-color: #f0fdf4; color: #14532d; }
+      .dark.bg-theme-mint, .dark .bg-theme-mint { background-color: #052e16; color: #dcfce7; }
+
+      /* 4. Royal (Purple) */
+      .bg-theme-royal { background-color: #faf5ff; color: #581c87; }
+      .dark.bg-theme-royal, .dark .bg-theme-royal { background-color: #3b0764; color: #f3e8ff; }
+
+      /* 5. Sunset (Orange) */
+      .bg-theme-sunset { background-color: #fff7ed; color: #7c2d12; }
+      .dark.bg-theme-sunset, .dark .bg-theme-sunset { background-color: #431407; color: #ffedd5; }
+
+      /* 6. Rose (Red/Pink) */
+      .bg-theme-rose { background-color: #fff1f2; color: #881337; }
+      .dark.bg-theme-rose, .dark .bg-theme-rose { background-color: #4c0519; color: #ffe4e6; }
+
+      /* 7. Steel (Slate/Gray) */
+      .bg-theme-steel { background-color: #f8fafc; color: #0f172a; }
+      .dark.bg-theme-steel, .dark .bg-theme-steel { background-color: #020617; color: #f1f5f9; }
+
 
       /* --- UNIFIED GLASS SYSTEM V3.2 (Reduced Blur for Visibility) --- */
       
@@ -128,6 +111,10 @@
         border: 1px solid rgba(255, 255, 255, 0.6);
         box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05);
         transition: all 0.4s var(--ease-out-quart);
+        /* Fix for font rendering */
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        transform: translateZ(0); 
       }
 
       .dark .glass-base, .dark .glass-panel, .dark .glass-card {
@@ -141,7 +128,8 @@
       
       .glass-hover:hover {
         background-color: rgba(255, 255, 255, 0.85); 
-        transform: translateY(-4px) scale(1.01); 
+        /* Removed scale(1.01) to fix blurry text on hover */
+        transform: translateY(-4px); 
         border-color: rgba(255, 255, 255, 1);
         box-shadow: 0 15px 35px rgba(0,0,0,0.1);
       }
@@ -201,13 +189,19 @@
   <script type="importmap">
 {
   "imports": {
-    "vite": "https://esm.sh/vite@^7.3.0",
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "react": "https://esm.sh/react@^19.2.3",
-    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.89.0",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "lucide-react": "https://esm.sh/lucide-react@^0.562.0"
+    "react": "https://esm.sh/react@^19.2.4",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
+    "vite": "https://esm.sh/vite@^7.3.1",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.4",
+    "express": "https://esm.sh/express@^5.2.1",
+    "sqlite3": "https://esm.sh/sqlite3@^5.1.7",
+    "cors": "https://esm.sh/cors@^2.8.6",
+    "url": "https://esm.sh/url@^0.11.4",
+    "path": "https://esm.sh/path@^0.12.7",
+    "mysql2": "https://esm.sh/mysql2@^3.17.1",
+    "os": "https://esm.sh/os@^0.1.2"
   }
 }
 </script>

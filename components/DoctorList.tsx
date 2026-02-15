@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { db, utils } from '../services/mockDb';
+import { db } from '../services/mockDb';
 import { Doctor } from '../types';
-import { Search, Plus, Trash2, Stethoscope, Award, CalendarDays, Hash, Fingerprint } from 'lucide-react';
+import { Search, Plus, Trash2, Stethoscope, Award, CalendarDays, Hash, Fingerprint, Check } from 'lucide-react';
+
+const WEEK_DAYS = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنج‌شنبه', 'جمعه'];
 
 const DoctorList: React.FC = () => {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
@@ -38,19 +40,13 @@ const DoctorList: React.FC = () => {
     e.preventDefault();
     if (!newDoctor.first_name || !newDoctor.last_name || !newDoctor.medical_system_number || !newDoctor.national_code) return;
 
-    // Validation
-    if (!utils.isValidNationalCode(newDoctor.national_code)) {
-      alert('کد ملی وارد شده معتبر نیست. لطفاً کد ۱۰ رقمی صحیح وارد کنید.');
-      return;
-    }
-
     await db.createDoctor({
       first_name: newDoctor.first_name,
       last_name: newDoctor.last_name,
       national_code: newDoctor.national_code,
       specialty: newDoctor.specialty,
       medical_system_number: newDoctor.medical_system_number,
-      work_days: newDoctor.work_days || 'شنبه,دوشنبه,چهارشنبه' // Default if empty (Persian)
+      work_days: newDoctor.work_days || 'شنبه,دوشنبه,چهارشنبه'
     });
 
     setNewDoctor({ 
@@ -63,6 +59,23 @@ const DoctorList: React.FC = () => {
     });
     setIsAdding(false);
     loadData();
+  };
+
+  const toggleDay = (day: string) => {
+    // Split current string into array, checking for empty strings
+    const currentDays = newDoctor.work_days ? newDoctor.work_days.split(',').filter(d => d.trim() !== '') : [];
+    let newDays;
+    
+    if (currentDays.includes(day)) {
+      newDays = currentDays.filter(d => d !== day);
+    } else {
+      newDays = [...currentDays, day];
+    }
+    
+    // Sort based on WEEK_DAYS index to maintain logical order (Sat to Fri)
+    newDays.sort((a, b) => WEEK_DAYS.indexOf(a) - WEEK_DAYS.indexOf(b));
+    
+    setNewDoctor({ ...newDoctor, work_days: newDays.join(',') });
   };
 
   const filtered = doctors.filter(d => 
@@ -167,17 +180,37 @@ const DoctorList: React.FC = () => {
                 onChange={e => setNewDoctor({...newDoctor, medical_system_number: e.target.value})}
               />
             </div>
-            <div className="lg:col-span-2">
-              <label className="block text-xs text-stone-500 dark:text-stone-400 font-bold mb-2">روزهای کاری (با کاما)</label>
-              <input 
-                type="text" 
-                placeholder="شنبه,دوشنبه,چهارشنبه"
-                dir="rtl"
-                className="w-full p-4 glass-input rounded-2xl outline-none font-bold text-right"
-                value={newDoctor.work_days}
-                onChange={e => setNewDoctor({...newDoctor, work_days: e.target.value})}
-              />
+            
+            {/* Work Days Selection */}
+            <div className="lg:col-span-6">
+              <label className="block text-xs text-stone-500 dark:text-stone-400 font-bold mb-2">روزهای کاری</label>
+              <div className="flex flex-wrap gap-2 p-3 glass-input rounded-2xl items-center border border-stone-200/50 dark:border-white/5">
+                {WEEK_DAYS.map((day) => {
+                   // Safe check for includes using array split
+                   const currentDaysArr = newDoctor.work_days.split(',');
+                   const isSelected = currentDaysArr.includes(day);
+                   
+                   return (
+                     <button
+                       key={day}
+                       type="button"
+                       onClick={() => toggleDay(day)}
+                       className={`
+                          px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 duration-300
+                          ${isSelected 
+                            ? 'bg-stone-800 text-white dark:bg-stone-100 dark:text-stone-900 shadow-lg transform scale-105 ring-2 ring-stone-200 dark:ring-stone-700' 
+                            : 'bg-stone-100 dark:bg-white/5 text-stone-400 dark:text-stone-500 hover:bg-stone-200 dark:hover:bg-white/10 hover:text-stone-600 dark:hover:text-stone-300'}
+                       `}
+                     >
+                       {isSelected && <Check className="w-3.5 h-3.5" strokeWidth={3} />}
+                       {day}
+                     </button>
+                   )
+                })}
+              </div>
+              <p className="text-[10px] text-stone-400 mt-2 mr-1 font-medium">روزهایی که پزشک در مطب حضور دارد را انتخاب کنید (جهت نمایش در سیستم نوبت دهی).</p>
             </div>
+
             <div className="lg:col-span-6 flex gap-3 mt-4">
               <button type="button" onClick={() => setIsAdding(false)} className="px-6 py-4 text-stone-500 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-white/10 rounded-2xl font-bold transition-colors">انصراف</button>
               <button type="submit" className="flex-1 bg-stone-800/90 dark:bg-stone-100/90 text-white dark:text-stone-900 py-4 rounded-2xl hover:shadow-lg transition-all font-bold backdrop-blur-sm">ثبت پزشک</button>
@@ -244,7 +277,7 @@ const DoctorList: React.FC = () => {
                           </div>
                           <div className="flex flex-wrap gap-1">
                              {doc.work_days.split(',').map((d, i) => (
-                               <span key={i} className="text-[10px] bg-stone-100/50 dark:bg-stone-800/50 px-2 py-1 rounded-md text-stone-600 dark:text-stone-400 font-bold">
+                               <span key={i} className="text-[10px] bg-stone-100/50 dark:bg-stone-800/50 px-2 py-1 rounded-md text-stone-600 dark:text-stone-400 font-bold border border-stone-200/50 dark:border-white/5">
                                  {d}
                                </span>
                              ))}

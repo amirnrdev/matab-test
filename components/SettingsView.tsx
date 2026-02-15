@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { db } from '../services/mockDb';
 import { Personnel, ThemeType } from '../types';
-import { Settings, Lock, User, Save, CheckCircle, Palette, Check, Moon, Sun, Monitor } from 'lucide-react';
+import { Settings, User, Save, CheckCircle, Palette, Check, Moon, Sun, Monitor, Lock } from 'lucide-react';
 
 interface SettingsViewProps {
   currentUser: Personnel;
@@ -21,51 +21,38 @@ const SettingsView: React.FC<SettingsViewProps> = ({
   onToggleDarkMode
 }) => {
   const [username, setUsername] = useState(currentUser.national_code);
-  const [password, setPassword] = useState(currentUser.password || '123456');
+  const [password, setPassword] = useState(''); // State for new password
   const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage(null);
 
-    if (username.length < 5) {
-      setMessage({ type: 'error', text: 'نام کاربری باید حداقل ۵ کاراکتر باشد.' });
-      return;
-    }
-    if (password.length < 4) {
-      setMessage({ type: 'error', text: 'رمز عبور باید حداقل ۴ کاراکتر باشد.' });
-      return;
-    }
-
     try {
-      const updatedUser = await db.updateCredentials(currentUser.national_code, username, password);
+      // Use new password if provided, otherwise keep existing
+      // If password field is empty, pass currentUser.password (or national_code if not set, though login ensures it is)
+      const passToUpdate = password.trim() ? password : (currentUser.password || currentUser.national_code);
+
+      // Username/National Code is read-only
+      const updatedUser = await db.updateCredentials(currentUser.national_code, currentUser.national_code, passToUpdate);
+      
       onUpdateUser(updatedUser);
+      setPassword(''); // Clear input after save
       setMessage({ type: 'success', text: 'اطلاعات با موفقیت بروزرسانی شد.' });
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message });
     }
   };
 
-  // Styles list (Updated names)
+  // Styles list
   const themes: { id: ThemeType; name: string; previewClass: string }[] = [
-    { id: 'foundation', name: 'پایه (کرم)', previewClass: 'bg-theme-foundation' },
-    { id: 'creative', name: 'خلاق (هلویی)', previewClass: 'bg-theme-creative' },
-    { id: 'fluid', name: 'روان (آبی)', previewClass: 'bg-theme-fluid' },
-    { id: 'nature', name: 'طبیعت (جنگلی)', previewClass: 'bg-theme-nature' },
-    { id: 'urban', name: 'شهری (بنفش)', previewClass: 'bg-theme-urban' },
     { id: 'grid', name: 'تکنو (ساده)', previewClass: 'bg-theme-grid' },
-    
-    // Richer Backgrounds
-    { id: 'dark', name: 'نیمه شب', previewClass: 'bg-theme-dark' },
-    { id: 'rose', name: 'رز', previewClass: 'bg-theme-rose' },
-    { id: 'sky', name: 'آسمان', previewClass: 'bg-theme-sky' },
-    { id: 'gray', name: 'سربی', previewClass: 'bg-theme-gray' },
-    { id: 'indigo', name: 'نیلی', previewClass: 'bg-theme-indigo' },
-    { id: 'amber', name: 'کهربایی', previewClass: 'bg-theme-amber' },
-    { id: 'stone', name: 'سنگی', previewClass: 'bg-theme-stone' },
-    { id: 'slate', name: 'سبز خاص', previewClass: 'bg-theme-slate' },
-    { id: 'fuchsia', name: 'ارکیده', previewClass: 'bg-theme-fuchsia' },
-    { id: 'cream', name: 'بیسکویتی', previewClass: 'bg-theme-cream' },
+    { id: 'ocean', name: 'اقیانوس (آبی)', previewClass: 'bg-theme-ocean' },
+    { id: 'mint', name: 'نعنایی (سبز)', previewClass: 'bg-theme-mint' },
+    { id: 'royal', name: 'سلطنتی (بنفش)', previewClass: 'bg-theme-royal' },
+    { id: 'sunset', name: 'غروب (نارنجی)', previewClass: 'bg-theme-sunset' },
+    { id: 'rose', name: 'رز (صورتی)', previewClass: 'bg-theme-rose' },
+    { id: 'steel', name: 'فولادی (طوسی)', previewClass: 'bg-theme-steel' },
   ];
 
   return (
@@ -122,7 +109,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                   <Monitor className="w-4 h-4" />
                   انتخاب استایل رنگی (Color Theme):
                </p>
-               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 gap-4">
                   {themes.map((t) => (
                      <button
                        key={t.id}
@@ -134,11 +121,11 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                              : 'border-transparent hover:border-stone-300 dark:hover:border-stone-700'}
                        `}
                      >
-                        {/* Dynamic Preview Box that reacts to parent .dark class */}
-                        <div className={`w-full h-16 rounded-xl mb-2 shadow-inner ${t.previewClass} flex items-center justify-center transition-colors duration-500`}>
+                        {/* Dynamic Preview Box */}
+                        <div className={`w-full h-12 rounded-xl mb-2 shadow-inner ${t.previewClass} flex items-center justify-center transition-colors duration-500`}>
                            {currentTheme === t.id && (
                               <div className="bg-stone-800/80 dark:bg-white/80 text-white dark:text-black rounded-full p-1 animate-pop">
-                                 <Check className="w-4 h-4" />
+                                 <Check className="w-3 h-3" />
                               </div>
                            )}
                         </div>
@@ -182,7 +169,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({
       <form onSubmit={handleSave} className="glass-panel rounded-3xl shadow-lg border-0 p-8 border-t dark:border border-stone-100 dark:border-white/10 animate-item hover:shadow-xl transition-all duration-300" style={{animationDelay: '300ms'}}>
         <h2 className="font-bold text-stone-700 dark:text-stone-200 flex items-center gap-2 mb-6">
           <Lock className="w-5 h-5 text-stone-400" />
-          تغییر اطلاعات ورود
+          اطلاعات ورود
         </h2>
 
         <div className="space-y-6">
@@ -193,11 +180,11 @@ const SettingsView: React.FC<SettingsViewProps> = ({
             <input 
               type="text" 
               dir="ltr"
-              className="w-full p-4 glass-input rounded-xl outline-none font-mono"
+              readOnly
+              className="w-full p-4 glass-input rounded-xl outline-none font-mono opacity-60 cursor-not-allowed bg-stone-100 dark:bg-stone-800/50"
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
             />
-            <p className="text-xs text-stone-400 mt-2">از این کد برای ورود به سیستم استفاده می‌شود.</p>
+            <p className="text-xs text-stone-400 mt-2">جهت تغییر کد ملی با مدیر سیستم تماس بگیرید (غیرقابل ویرایش جهت حفظ سوابق).</p>
           </div>
 
           <div>
@@ -205,9 +192,10 @@ const SettingsView: React.FC<SettingsViewProps> = ({
               رمز عبور جدید
             </label>
             <input 
-              type="text" 
+              type="password"
               dir="ltr"
-              className="w-full p-4 glass-input rounded-xl outline-none font-mono"
+              className="w-full p-4 glass-input rounded-xl outline-none font-bold placeholder-stone-400 transition-all focus:border-stone-400"
+              placeholder="در صورت تمایل به تغییر، رمز جدید را وارد کنید"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />

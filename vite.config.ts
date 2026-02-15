@@ -7,4 +7,9 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: false
   },
+  server: {
+    host: '0.0.0.0', // Explicitly listen on all IPs
+    port: 5173,
+    strictPort: true
+  }
 });

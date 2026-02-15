@@ -1,7 +1,49 @@
 import React, { useState, useEffect } from 'react';
-import { db, utils } from '../services/mockDb';
+import { db } from '../services/mockDb';
 import { Doctor, Appointment } from '../types';
-import { User, Check, CheckCircle, Copy, ArrowRight, ArrowLeft, Activity, CalendarDays, UserPlus, Clock, Phone, FileText, Stethoscope, ChevronLeft, ChevronRight } from 'lucide-react';
+import { User, Check, CheckCircle, Copy, ArrowRight, ArrowLeft, Activity, CalendarDays, UserPlus, Clock, Phone, FileText, Stethoscope, ChevronLeft, ChevronRight, Home, X, Calendar } from 'lucide-react';
+
+const Timeline = ({ step }: { step: number }) => {
+  const steps = [
+    { id: 1, label: 'پزشک', icon: Stethoscope },
+    { id: 2, label: 'زمان', icon: CalendarDays },
+    { id: 3, label: 'بیمار', icon: UserPlus },
+  ];
+
+  return (
+    <div className="flex justify-center mb-6 relative z-20 animate-fade-in-up">
+       <div className="glass-panel px-5 py-3 rounded-full flex items-center gap-4 md:gap-10 relative shadow-sm">
+          <div className="absolute top-1/2 left-6 right-6 h-[2px] bg-stone-200 dark:bg-stone-700/50 -z-10 rounded-full"></div>
+          {steps.map((s) => {
+             const isActive = step === s.id;
+             const isCompleted = step > s.id;
+             return (
+                <div key={s.id} className="relative flex flex-col items-center justify-center">
+                   <div 
+                      className={`
+                         w-8 h-8 rounded-full flex items-center justify-center transition-all duration-500 z-10 border-[3px]
+                         ${isActive 
+                            ? 'bg-stone-800 dark:bg-stone-100 border-white dark:border-stone-800 text-white dark:text-stone-900 scale-110 shadow-lg' 
+                            : isCompleted 
+                               ? 'bg-stone-200 dark:bg-stone-700 border-stone-100 dark:border-stone-600 text-stone-500 dark:text-stone-400'
+                               : 'bg-white dark:bg-stone-800 border-stone-100 dark:border-stone-700 text-stone-300'}
+                      `}
+                   >
+                      {isCompleted ? <Check className="w-3.5 h-3.5" strokeWidth={3} /> : <s.icon className="w-3.5 h-3.5" />}
+                   </div>
+                   <span className={`
+                      absolute top-10 whitespace-nowrap text-[9px] font-black uppercase tracking-wider transition-all duration-300 bg-white/80 dark:bg-black/80 px-2 py-0.5 rounded-md backdrop-blur-sm
+                      ${isActive ? 'opacity-100 translate-y-0 text-stone-800 dark:text-stone-100 shadow-sm' : 'opacity-0 translate-y-1 scale-90 md:opacity-50 md:translate-y-0 md:text-stone-400 pointer-events-none'}
+                   `}>
+                      {s.label}
+                   </span>
+                </div>
+             );
+          })}
+       </div>
+    </div>
+  );
+};
 
 const BookingView: React.FC = () => {
   const [step, setStep] = useState(1);
@@ -9,6 +51,7 @@ const BookingView: React.FC = () => {
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
+  const [takenSlots, setTakenSlots] = useState<string[]>([]); // New State for taken slots
   const [createdAppointment, setCreatedAppointment] = useState<Appointment | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loadingDocs, setLoadingDocs] = useState(true);
@@ -22,8 +65,21 @@ const BookingView: React.FC = () => {
     gender: 'Male'
   });
 
+  // Date Picker States
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [pickerStep, setPickerStep] = useState<'year' | 'month' | 'day'>('year');
+  const [tempDate, setTempDate] = useState({ year: '', month: '', day: '' });
+
   const [message, setMessage] = useState<{type: 'success'|'error', text: string} | null>(null);
-  const [availabilityCache, setAvailabilityCache] = useState<Record<string, boolean>>({});
+
+  const persianMonths = [
+    'فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور',
+    'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'
+  ];
+
+  // Generate years from 1300 to 1403
+  const years = Array.from({ length: 104 }, (_, i) => 1403 - i);
+  const days = Array.from({ length: 31 }, (_, i) => i + 1);
 
   useEffect(() => {
     const loadDocs = async () => {
@@ -38,28 +94,21 @@ const BookingView: React.FC = () => {
     loadDocs();
   }, []);
 
-  // Pre-check availability for UI rendering is tricky in Async mode.
-  // For now, we will assume available in UI until clicked, or cache checks.
-  // In a real app, you fetch available slots for a day from API.
-  const checkSlot = async (date: string, time: string) => {
-      if (!selectedDoctor) return false;
-      // In online mode, we'd ideally fetch all busy slots for the day.
-      // Here we check individually (simplification)
-      const key = `${date}-${time}`;
-      if (availabilityCache[key] !== undefined) return availabilityCache[key];
-      
-      const available = await db.checkAvailability(selectedDoctor.doctor_id, date, time);
-      setAvailabilityCache(prev => ({...prev, [key]: available}));
-      return available;
-  };
-
+  // Fetch taken slots when doctor or date changes
+  useEffect(() => {
+    if (selectedDoctor && selectedDate) {
+      db.getTakenSlots(selectedDoctor.doctor_id, selectedDate).then(setTakenSlots);
+    } else {
+      setTakenSlots([]);
+    }
+  }, [selectedDate, selectedDoctor]);
 
   const handleDoctorSelect = (doctor: Doctor) => {
     setSelectedDoctor(doctor);
     setStep(2);
     setSelectedDate('');
     setSelectedTime('');
-    setAvailabilityCache({});
+    setTakenSlots([]);
   };
 
   const generateTimeSlots = () => {
@@ -111,18 +160,6 @@ const BookingView: React.FC = () => {
          return;
       }
 
-      if (!utils.isValidNationalCode(formData.nationalCode)) {
-         setMessage({ type: 'error', text: 'کد ملی وارد شده معتبر نیست. لطفاً کد ملی ۱۰ رقمی صحیح وارد کنید.' });
-         setIsSubmitting(false);
-         return;
-      }
-      
-      if (!utils.isValidPhoneNumber(formData.phone)) {
-         setMessage({ type: 'error', text: 'شماره موبایل نامعتبر است. باید ۱۱ رقم باشد و با ۰۹ شروع شود.' });
-         setIsSubmitting(false);
-         return;
-      }
-
       // Check Patient Async
       let patient = await db.findPatientByNationalCode(formData.nationalCode);
       
@@ -131,7 +168,7 @@ const BookingView: React.FC = () => {
           first_name: formData.firstName,
           last_name: formData.lastName,
           national_code: formData.nationalCode,
-          birth_date: formData.birthDate || '1370-01-01',
+          birth_date: formData.birthDate || '1370/01/01',
           phone_number: formData.phone,
           gender: formData.gender,
         });
@@ -167,48 +204,6 @@ const BookingView: React.FC = () => {
     }
   };
 
-  const Timeline = () => {
-    const steps = [
-      { id: 1, label: 'پزشک', icon: Stethoscope },
-      { id: 2, label: 'زمان', icon: CalendarDays },
-      { id: 3, label: 'بیمار', icon: UserPlus },
-    ];
-
-    return (
-      <div className="flex justify-center mb-6 relative z-20 animate-fade-in-up">
-         <div className="glass-panel px-5 py-3 rounded-full flex items-center gap-4 md:gap-10 relative shadow-sm">
-            <div className="absolute top-1/2 left-6 right-6 h-[2px] bg-stone-200 dark:bg-stone-700/50 -z-10 rounded-full"></div>
-            {steps.map((s) => {
-               const isActive = step === s.id;
-               const isCompleted = step > s.id;
-               return (
-                  <div key={s.id} className="relative flex flex-col items-center justify-center">
-                     <div 
-                        className={`
-                           w-8 h-8 rounded-full flex items-center justify-center transition-all duration-500 z-10 border-[3px]
-                           ${isActive 
-                              ? 'bg-stone-800 dark:bg-stone-100 border-white dark:border-stone-800 text-white dark:text-stone-900 scale-110 shadow-lg' 
-                              : isCompleted 
-                                 ? 'bg-stone-200 dark:bg-stone-700 border-stone-100 dark:border-stone-600 text-stone-500 dark:text-stone-400'
-                                 : 'bg-white dark:bg-stone-800 border-stone-100 dark:border-stone-700 text-stone-300'}
-                        `}
-                     >
-                        {isCompleted ? <Check className="w-3.5 h-3.5" strokeWidth={3} /> : <s.icon className="w-3.5 h-3.5" />}
-                     </div>
-                     <span className={`
-                        absolute top-10 whitespace-nowrap text-[9px] font-black uppercase tracking-wider transition-all duration-300 bg-white/80 dark:bg-black/80 px-2 py-0.5 rounded-md backdrop-blur-sm
-                        ${isActive ? 'opacity-100 translate-y-0 text-stone-800 dark:text-stone-100 shadow-sm' : 'opacity-0 translate-y-1 scale-90 md:opacity-50 md:translate-y-0 md:text-stone-400 pointer-events-none'}
-                     `}>
-                        {s.label}
-                     </span>
-                  </div>
-               );
-            })}
-         </div>
-      </div>
-    );
-  };
-
   return (
     <div className="space-y-4 font-vazir pb-12 relative">
       <header className="mb-2 text-center md:text-right flex flex-col md:flex-row justify-between items-end gap-4 animate-mac-window max-w-6xl mx-auto px-4 md:px-0">
@@ -217,7 +212,7 @@ const BookingView: React.FC = () => {
         </div>
       </header>
 
-      {step < 4 && <Timeline />}
+      {step < 4 && <Timeline step={step} />}
 
       {/* Step 1: Select Doctor */}
       {step === 1 && (
@@ -291,8 +286,7 @@ const BookingView: React.FC = () => {
                  <h3 className="text-sm font-black text-stone-800 dark:text-stone-100">انتخاب روز ویزیت</h3>
               </div>
               
-              <div className="relative group">
-                <div className="flex gap-3 overflow-x-auto pb-4 pt-2 px-2 custom-scrollbar snap-x">
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 gap-3 px-2">
                   {generateNext14Days().map((date, idx) => {
                     const persianDayName = getPersianDayName(date);
                     const formattedDateValue = formatDateValue(date);
@@ -308,7 +302,7 @@ const BookingView: React.FC = () => {
                           setSelectedTime('');
                         }}
                         className={`
-                          flex-shrink-0 w-24 h-28 rounded-2xl border transition-all duration-300 flex flex-col items-center justify-center gap-1 snap-start glass-card
+                          w-full h-24 rounded-2xl border transition-all duration-300 flex flex-col items-center justify-center gap-1 glass-card
                           ${!isWorkingDay 
                              ? 'opacity-50 grayscale cursor-not-allowed border-transparent shadow-none' 
                              : isSelected 
@@ -319,7 +313,7 @@ const BookingView: React.FC = () => {
                         <span className={`text-[10px] font-bold ${isSelected ? 'text-white/70 dark:text-black/60' : 'text-stone-400'}`}>
                            {persianDayName}
                         </span>
-                        <span className="text-2xl font-black tracking-tighter" dir="ltr">
+                        <span className="text-xl font-black tracking-tighter" dir="ltr">
                            {date.getDate()}
                         </span>
                         <span className={`text-[10px] font-bold ${isSelected ? 'text-white/70 dark:text-black/60' : 'text-stone-400'}`}>
@@ -329,7 +323,6 @@ const BookingView: React.FC = () => {
                     );
                   })}
                 </div>
-              </div>
             </div>
 
             <div className={`glass-card p-5 flex flex-col transition-all duration-500 animate-item ${selectedDate ? 'opacity-100 translate-y-0' : 'opacity-50 translate-y-4 pointer-events-none grayscale'}`} style={{animationDelay: '300ms'}}>
@@ -343,19 +336,20 @@ const BookingView: React.FC = () => {
                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
                  {generateTimeSlots().map(time => {
                    const isSelected = selectedTime === time;
-                   // Note: Availability check logic for Async is simplified here. 
-                   // In a real scenario, you'd fetch blocked slots for the day.
-                   // Here we allow selection and check on submit for demo smoothness.
+                   const isTaken = takenSlots.includes(time);
+                   
                    return (
                      <button
                         key={time}
-                        disabled={!selectedDate}
+                        disabled={!selectedDate || isTaken}
                         onClick={() => setSelectedTime(time)}
                         className={`
                           py-2.5 rounded-xl text-xs font-bold border transition-all duration-300 relative overflow-hidden group
-                          ${isSelected 
-                            ? 'bg-stone-800 dark:bg-stone-100 text-white dark:text-stone-900 border-stone-800 dark:border-stone-100 shadow-lg scale-105' 
-                            : 'glass-input hover:bg-white dark:hover:bg-white/10'}
+                          ${isTaken 
+                             ? 'opacity-40 cursor-not-allowed bg-stone-200 dark:bg-stone-800 decoration-slice line-through' 
+                             : isSelected 
+                                ? 'bg-stone-800 dark:bg-stone-100 text-white dark:text-stone-900 border-stone-800 dark:border-stone-100 shadow-lg scale-105' 
+                                : 'glass-input hover:bg-white dark:hover:bg-white/10'}
                         `}
                      >
                        {time}
@@ -464,16 +458,132 @@ const BookingView: React.FC = () => {
            </div>
 
            <div className="mb-8 animate-item" style={{animationDelay: '400ms'}}>
-               <div className="relative group">
-                  <label className="text-[10px] font-bold text-stone-500 dark:text-stone-400 mb-1.5 block mr-1">تاریخ تولد</label>
-                  <input 
-                    type="date"
-                    className="p-3 pr-4 glass-input rounded-xl w-full outline-none font-bold text-sm"
-                    value={formData.birthDate}
-                    onChange={(e) => setFormData({...formData, birthDate: e.target.value})}
-                  />
+               <div className="relative group cursor-pointer" onClick={() => setShowDatePicker(true)}>
+                  <label className="text-[10px] font-bold text-stone-500 dark:text-stone-400 mb-1.5 block mr-1">تاریخ تولد (شمسی)</label>
+                  <div className="relative">
+                    <input 
+                        type="text"
+                        readOnly
+                        dir="ltr"
+                        placeholder="انتخاب کنید"
+                        className="p-3 pr-4 glass-input rounded-xl w-full outline-none font-bold text-sm text-right font-mono tracking-widest cursor-pointer hover:bg-white/50 dark:hover:bg-white/10"
+                        value={formData.birthDate}
+                    />
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-400" />
+                  </div>
                </div>
            </div>
+
+           {/* DATE PICKER MODAL */}
+           {showDatePicker && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in-up">
+                 <div className="glass-panel w-full max-w-sm p-6 relative overflow-hidden flex flex-col max-h-[500px] shadow-2xl">
+                    {/* Header */}
+                    <div className="flex justify-between items-center mb-6 border-b border-stone-200/50 dark:border-white/10 pb-4">
+                       <h3 className="font-bold text-lg text-stone-800 dark:text-stone-100 flex items-center gap-2">
+                           <Calendar className="w-5 h-5 text-stone-500" />
+                           انتخاب تاریخ تولد
+                       </h3>
+                       <button 
+                         onClick={() => {
+                            setShowDatePicker(false);
+                            setPickerStep('year');
+                            setTempDate({year:'', month:'', day:''});
+                         }}
+                         className="p-1 rounded-full hover:bg-stone-200 dark:hover:bg-white/10 transition-colors"
+                       >
+                         <X className="w-5 h-5 text-stone-500" />
+                       </button>
+                    </div>
+                    
+                    {/* Current Selection Display */}
+                    <div className="bg-stone-100 dark:bg-stone-800 p-4 rounded-2xl mb-6 text-center text-xl font-bold font-mono tracking-widest text-stone-700 dark:text-stone-300 border border-stone-200 dark:border-white/5 shadow-inner">
+                       <span className={pickerStep === 'year' ? 'text-blue-500' : ''}>{tempDate.year || '----'}</span>
+                       <span className="text-stone-400 mx-2">/</span>
+                       <span className={pickerStep === 'month' ? 'text-blue-500' : ''}>{tempDate.month || '--'}</span>
+                       <span className="text-stone-400 mx-2">/</span>
+                       <span className={pickerStep === 'day' ? 'text-blue-500' : ''}>{tempDate.day || '--'}</span>
+                    </div>
+                    
+                    {/* Content Grid */}
+                    <div className="flex-1 overflow-y-auto custom-scrollbar">
+                       
+                       {/* YEAR Selection */}
+                       {pickerStep === 'year' && (
+                          <div className="grid grid-cols-4 gap-2">
+                            {years.map(y => (
+                                <button 
+                                   key={y} 
+                                   onClick={() => { 
+                                      setTempDate({...tempDate, year: String(y)}); 
+                                      setPickerStep('month'); 
+                                   }} 
+                                   className="py-2 rounded-lg bg-white/40 dark:bg-white/5 hover:bg-stone-800 hover:text-white dark:hover:bg-stone-100 dark:hover:text-stone-900 transition-colors text-sm font-bold font-mono border border-transparent"
+                                >
+                                   {y}
+                                </button>
+                            ))}
+                          </div>
+                       )}
+
+                       {/* MONTH Selection */}
+                       {pickerStep === 'month' && (
+                          <div className="grid grid-cols-3 gap-2">
+                            {persianMonths.map((m, i) => (
+                                <button 
+                                   key={m} 
+                                   onClick={() => { 
+                                      setTempDate({...tempDate, month: String(i+1).padStart(2, '0')}); 
+                                      setPickerStep('day'); 
+                                   }} 
+                                   className="py-3 rounded-lg bg-white/40 dark:bg-white/5 hover:bg-stone-800 hover:text-white dark:hover:bg-stone-100 dark:hover:text-stone-900 transition-colors text-xs font-bold"
+                                >
+                                   {m}
+                                </button>
+                            ))}
+                          </div>
+                       )}
+
+                       {/* DAY Selection */}
+                       {pickerStep === 'day' && (
+                          <div className="grid grid-cols-6 gap-2">
+                             {days.map(d => (
+                                <button 
+                                   key={d} 
+                                   onClick={() => { 
+                                      const finalDate = `${tempDate.year}/${tempDate.month}/${String(d).padStart(2, '0')}`;
+                                      setFormData({...formData, birthDate: finalDate});
+                                      setShowDatePicker(false);
+                                      setPickerStep('year');
+                                      setTempDate({year:'', month:'', day:''});
+                                   }} 
+                                   className="py-3 rounded-lg bg-white/40 dark:bg-white/5 hover:bg-stone-800 hover:text-white dark:hover:bg-stone-100 dark:hover:text-stone-900 transition-colors text-sm font-bold font-mono"
+                                >
+                                   {d}
+                                </button>
+                             ))}
+                          </div>
+                       )}
+                    </div>
+
+                    {/* Footer Nav */}
+                    <div className="mt-4 pt-4 border-t border-stone-200/50 dark:border-white/10 flex justify-between items-center">
+                       {pickerStep !== 'year' && (
+                          <button 
+                            onClick={() => setPickerStep(prev => prev === 'day' ? 'month' : 'year')} 
+                            className="text-xs font-bold text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 flex items-center gap-1"
+                          >
+                            <ChevronRight className="w-4 h-4" />
+                            بازگشت
+                          </button>
+                       )}
+                       <span className="text-[10px] text-stone-400 mr-auto">
+                          {pickerStep === 'year' ? 'انتخاب سال' : pickerStep === 'month' ? 'انتخاب ماه' : 'انتخاب روز'}
+                       </span>
+                    </div>
+                 </div>
+              </div>
+           )}
 
            {message && (
              <div className={`mb-6 p-4 rounded-xl text-xs font-bold text-center animate-item ${message.type === 'error' ? 'bg-red-50/50 text-red-600' : 'bg-green-50/50 text-green-700'}`}>
@@ -522,7 +632,7 @@ const BookingView: React.FC = () => {
           </div>
 
           <button 
-            onClick={() => { 
+            onClick={() => {
                 setStep(1); 
                 setFormData({firstName: '', lastName: '', nationalCode: '', birthDate: '', phone: '', gender: 'Male'}); 
                 setMessage(null); 

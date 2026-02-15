@@ -51,16 +51,20 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ currentUser }) => {
   };
 
   const saveRecord = async () => {
-    if (!selectedAppt || !selectedMedicineId) {
-      alert("لطفا داروی تجویزی را انتخاب کنید");
-      return;
+    if (!selectedAppt) return;
+    
+    // Validate that description is provided
+    if (!description.trim()) {
+        alert("لطفا توضیحات و تشخیص پزشک را وارد کنید");
+        return;
     }
     
     await db.createMedicalRecord({
       patient_id: selectedAppt.patient_id,
       doctor_id: selectedAppt.doctor_id,
       personnel_national_code: currentUser.national_code,
-      medicine_id: Number(selectedMedicineId),
+      medicine_id: selectedMedicineId ? Number(selectedMedicineId) : 0, // MockDb handles 0 as null-ish behavior usually, but for consistency:
+      // Note: In real API call, we should ensure backend handles 0 or null correctly.
       visit_date: selectedAppt.reserved_date,
       specialty: selectedAppt.doctor?.specialty || 'General',
       chief_complaint: chiefComplaint,
@@ -146,13 +150,13 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ currentUser }) => {
           <div className="space-y-4 animate-item" style={{animationDelay: '300ms'}}>
              <div className="grid grid-cols-1 gap-4">
                <div>
-                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1.5">داروی تجویزی <span className="text-red-400">*</span></label>
+                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1.5">داروی تجویزی</label>
                   <select 
                     className="w-full p-3 glass-input rounded-xl outline-none text-stone-800 dark:text-stone-100 cursor-pointer font-bold text-sm"
                     value={selectedMedicineId}
-                    onChange={(e) => setSelectedMedicineId(Number(e.target.value))}
+                    onChange={(e) => setSelectedMedicineId(e.target.value ? Number(e.target.value) : '')}
                   >
-                    <option value="" className="dark:bg-stone-800">انتخاب دارو...</option>
+                    <option value="" className="dark:bg-stone-800">بدون دارو / انتخاب دارو...</option>
                     {medicines.map(m => (
                       <option key={m.medicine_id} value={m.medicine_id} className="dark:bg-stone-800">
                         {m.medicine_name} - {m.dosage_medicine_name} ({m.consumption_time})

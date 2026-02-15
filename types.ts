@@ -12,10 +12,32 @@ export enum AppointmentStatus {
   NoShow = 'NoShow',
 }
 
-// Updated themes: Added 'grid' (Login Style)
+// Updated themes: Kept 'grid' (Techno), replaced others with modern flat/pastel colors
 export type ThemeType = 
-  | 'foundation' | 'creative' | 'fluid' | 'nature' | 'urban' | 'dark'
-  | 'rose' | 'sky' | 'gray' | 'indigo' | 'amber' | 'stone' | 'slate' | 'fuchsia' | 'cream' | 'grid';
+  | 'grid' 
+  | 'ocean' 
+  | 'mint' 
+  | 'royal' 
+  | 'sunset' 
+  | 'rose' 
+  | 'steel';
+
+export enum View {
+  Landing = 'landing',
+  PublicBooking = 'public_booking',
+  Login = 'login',
+  Dashboard = 'dashboard',
+  BookingAdmin = 'booking_admin', // Booking inside admin panel
+  AppointmentList = 'appointment_list', // New View
+  DoctorPanel = 'doctor_panel',
+  PatientList = 'patient_list',
+  MedicalRecords = 'medical_records',
+  Medicines = 'medicines',
+  DoctorsManagement = 'doctors_management',
+  Personnel = 'personnel',
+  Database = 'database',
+  Settings = 'settings',
+}
 
 // Table: Personnel
 export interface Personnel {

@@ -1,19 +1,27 @@
 import React, { useEffect, useState } from 'react';
-import { db, utils } from '../services/mockDb';
+import { db } from '../services/mockDb';
 import { Personnel } from '../types';
-import { Search, Plus, Trash2, ShieldCheck, UserCog, User, Stethoscope, Briefcase } from 'lucide-react';
+import { Search, Plus, Trash2, ShieldCheck, UserCog, Edit, X, Save, Stethoscope, Briefcase } from 'lucide-react';
 
 const PersonnelList: React.FC = () => {
   const [personnel, setPersonnel] = useState<Personnel[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   
-  // Form State
+  // Form State for Adding
   const [newPerson, setNewPerson] = useState({
     first_name: '',
     last_name: '',
     national_code: '',
     role: 'منشی'
+  });
+
+  // Form State for Editing
+  const [editingPerson, setEditingPerson] = useState<Personnel | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    first_name: '',
+    last_name: '',
+    role: ''
   });
 
   useEffect(() => {
@@ -36,12 +44,6 @@ const PersonnelList: React.FC = () => {
     e.preventDefault();
     if (!newPerson.first_name || !newPerson.last_name || !newPerson.national_code) return;
 
-    // Validation
-    if (!utils.isValidNationalCode(newPerson.national_code)) {
-      alert('کد ملی وارد شده معتبر نیست. لطفاً کد ۱۰ رقمی صحیح وارد کنید.');
-      return;
-    }
-
     try {
       await db.createPersonnel({
         first_name: newPerson.first_name,
@@ -52,6 +54,33 @@ const PersonnelList: React.FC = () => {
 
       setNewPerson({ first_name: '', last_name: '', national_code: '', role: 'منشی' });
       setIsAdding(false);
+      loadData();
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const startEdit = (person: Personnel) => {
+    setEditingPerson(person);
+    setEditFormData({
+      first_name: person.first_name,
+      last_name: person.last_name,
+      role: person.role
+    });
+  };
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPerson) return;
+
+    try {
+      await db.updatePersonnel({
+        ...editingPerson,
+        first_name: editFormData.first_name,
+        last_name: editFormData.last_name,
+        role: editFormData.role
+      });
+      setEditingPerson(null);
       loadData();
     } catch (err: any) {
       alert(err.message);
@@ -82,7 +111,7 @@ const PersonnelList: React.FC = () => {
   };
 
   return (
-    <div className="space-y-8 max-w-6xl mx-auto">
+    <div className="space-y-8 max-w-6xl mx-auto relative">
       {/* Header Section */}
       <div className="flex flex-col md:flex-row justify-between items-center gap-4 animate-item">
         <div>
@@ -119,7 +148,7 @@ const PersonnelList: React.FC = () => {
       {isAdding && (
         <div className="glass-panel p-8 rounded-3xl animate-mac-window border border-stone-200/50 dark:border-white/10">
           <h3 className="font-bold text-xl text-stone-800 dark:text-stone-100 mb-6 flex items-center gap-2">
-            <User className="w-5 h-5 text-stone-400" />
+            <UserCog className="w-5 h-5 text-stone-400" />
             ثبت مشخصات همکار جدید
           </h3>
           <form onSubmit={handleAdd} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 items-end">
@@ -163,9 +192,9 @@ const PersonnelList: React.FC = () => {
               >
                 <option value="منشی" className="dark:bg-stone-900">منشی</option>
                 <option value="پرستار" className="dark:bg-stone-900">پرستار</option>
-                <option value="پزشک" className="dark:bg-stone-900">پزشک</option>
                 <option value="مدیر" className="dark:bg-stone-900">مدیر</option>
               </select>
+              <p className="text-[10px] text-stone-400 mt-1 mr-1">پزشکان را از بخش مدیریت پزشکان اضافه کنید.</p>
             </div>
             <div className="flex gap-3">
               <button type="button" onClick={() => setIsAdding(false)} className="px-6 py-4 text-stone-500 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-white/10 rounded-2xl font-bold transition-colors">انصراف</button>
@@ -193,12 +222,23 @@ const PersonnelList: React.FC = () => {
                   <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner ${getRoleColor(person.role)} bg-opacity-20`}>
                      {getRoleIcon(person.role)}
                   </div>
-                  <button 
-                    onClick={() => handleDelete(person.national_code)}
-                    className="p-2 text-stone-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
+                  
+                  <div className="flex items-center gap-1">
+                    <button 
+                        onClick={() => startEdit(person)}
+                        className="p-2 text-stone-400 hover:text-stone-800 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-white/10 rounded-xl transition-colors"
+                        title="ویرایش"
+                    >
+                        <Edit className="w-5 h-5" />
+                    </button>
+                    <button 
+                        onClick={() => handleDelete(person.national_code)}
+                        className="p-2 text-stone-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors"
+                        title="حذف"
+                    >
+                        <Trash2 className="w-5 h-5" />
+                    </button>
+                  </div>
                </div>
 
                <div>
@@ -216,6 +256,82 @@ const PersonnelList: React.FC = () => {
             </div>
           ))}
       </div>
+
+      {/* Edit Modal */}
+      {editingPerson && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in-up">
+           <div className="glass-panel w-full max-w-lg p-8 rounded-[32px] relative shadow-2xl animate-pop border border-white/20">
+              <button 
+                onClick={() => setEditingPerson(null)}
+                className="absolute top-6 left-6 p-2 rounded-full hover:bg-stone-100 dark:hover:bg-white/10 transition-colors"
+              >
+                 <X className="w-5 h-5 text-stone-500" />
+              </button>
+
+              <h2 className="text-xl font-bold text-stone-800 dark:text-stone-100 flex items-center gap-2 mb-6">
+                 <Edit className="w-5 h-5 text-stone-400" />
+                 ویرایش اطلاعات پرسنل
+              </h2>
+
+              <form onSubmit={handleUpdate} className="space-y-4">
+                 
+                 <div className="p-4 bg-stone-50 dark:bg-white/5 rounded-2xl mb-4 text-xs font-medium text-stone-500 dark:text-stone-400 border border-stone-100 dark:border-white/5 flex justify-between items-center">
+                    <span>کد ملی (غیر قابل تغییر):</span>
+                    <span className="font-mono font-bold text-stone-800 dark:text-stone-200 text-sm">{editingPerson.national_code}</span>
+                 </div>
+
+                 <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1.5">نام</label>
+                        <input 
+                            className="w-full p-3 glass-input rounded-xl outline-none font-bold text-sm"
+                            value={editFormData.first_name}
+                            onChange={(e) => setEditFormData({...editFormData, first_name: e.target.value})}
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1.5">نام خانوادگی</label>
+                        <input 
+                            className="w-full p-3 glass-input rounded-xl outline-none font-bold text-sm"
+                            value={editFormData.last_name}
+                            onChange={(e) => setEditFormData({...editFormData, last_name: e.target.value})}
+                        />
+                    </div>
+                 </div>
+
+                 <div>
+                    <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1.5">نقش سازمانی</label>
+                    <select 
+                        className="w-full p-3 glass-input rounded-xl outline-none cursor-pointer font-bold text-sm"
+                        value={editFormData.role}
+                        onChange={(e) => setEditFormData({...editFormData, role: e.target.value})}
+                    >
+                        <option value="منشی" className="dark:bg-stone-900">منشی</option>
+                        <option value="پرستار" className="dark:bg-stone-900">پرستار</option>
+                        <option value="مدیر" className="dark:bg-stone-900">مدیر</option>
+                    </select>
+                 </div>
+
+                 <div className="flex justify-end gap-3 mt-8 pt-4 border-t border-stone-200/50 dark:border-white/10">
+                    <button 
+                        type="button"
+                        onClick={() => setEditingPerson(null)}
+                        className="px-6 py-3 text-stone-500 hover:bg-stone-100 dark:hover:bg-white/10 rounded-xl transition-colors font-bold text-sm"
+                    >
+                        انصراف
+                    </button>
+                    <button 
+                        type="submit"
+                        className="px-8 py-3 bg-stone-800/90 dark:bg-stone-100/90 text-white dark:text-stone-900 rounded-xl hover:shadow-lg transition-all font-bold flex items-center gap-2 active:scale-95 text-sm backdrop-blur-sm"
+                    >
+                        <Save className="w-4 h-4" />
+                        ذخیره تغییرات
+                    </button>
+                 </div>
+              </form>
+           </div>
+        </div>
+      )}
     </div>
   );
 };

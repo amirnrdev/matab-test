@@ -79,8 +79,9 @@ const MedicalRecordsView: React.FC<MedicalRecordsViewProps> = ({ targetPatientId
       ...editingRecord,
       chief_complaint: editChiefComplaint,
       description: editDescription,
-      medicine_id: Number(editMedicineId),
-      // Update the modifier logic if needed, currently keeping original doctor
+      medicine_id: editMedicineId ? Number(editMedicineId) : 0, // MockDb handles this, but server needs null.
+      // Note: The UI helper will send this to mockDb wrapper which calls API. 
+      // The API (server.js) has been updated to convert 0 to NULL.
     };
 
     try {
@@ -118,7 +119,7 @@ const MedicalRecordsView: React.FC<MedicalRecordsViewProps> = ({ targetPatientId
             <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-stone-400 w-5 h-5 group-focus-within:text-stone-600 dark:group-focus-within:text-stone-200 transition-colors" />
             <input 
               type="text" 
-              placeholder="جستجو (نام بیمار، کد ملی، پزشک...)" 
+              placeholder="جستجو..." 
               className="w-full pr-12 pl-4 py-3 glass-input rounded-2xl outline-none text-sm transition-all text-stone-700 dark:text-stone-200"
               onChange={(e) => setSearchTerm(e.target.value)}
               value={searchTerm}
@@ -305,7 +306,7 @@ const MedicalRecordsView: React.FC<MedicalRecordsViewProps> = ({ targetPatientId
                     <select 
                       className="w-full p-3 glass-input rounded-xl outline-none cursor-pointer font-bold text-sm"
                       value={editMedicineId}
-                      onChange={(e) => setEditMedicineId(Number(e.target.value))}
+                      onChange={(e) => setEditMedicineId(e.target.value ? Number(e.target.value) : '')}
                     >
                       <option value="" className="dark:bg-stone-800">بدون دارو / انتخاب دارو...</option>
                       {medicines.map(m => (
