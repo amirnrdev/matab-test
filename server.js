@@ -2,7 +2,7 @@
 import express from 'express';
 import sqlite3 from 'sqlite3';
 import cors from 'cors';
-import os from 'os'; // Added to detect IP address
+import os from 'os';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
@@ -12,7 +12,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 3001; // Support environment port for hosting
+const PORT = process.env.PORT || 3001;
 
 // Middleware
 app.use(cors());
@@ -21,108 +21,49 @@ app.use(express.json());
 // Check if dist exists for static serving
 const distPath = path.join(__dirname, 'dist');
 if (fs.existsSync(distPath)) {
-    // Serve Static Files (Frontend) - IMPORTANT FOR PRODUCTION
     app.use(express.static(distPath));
 } else {
-    console.warn(`\n⚠️  WARNING: 'dist' directory not found at ${distPath}`);
-    console.warn("   The backend is running, but the frontend static files are missing.");
-    console.warn("   -> If you are in DEVELOPMENT: This is fine. Access the app via the Vite URL (usually port 5173).");
-    console.warn("   -> If you are in PRODUCTION: Run 'npm run build' first.\n");
+    // Development mode warning
+    console.log("   [INFO] 'dist' folder not found. Serving API only. (Run 'npm run build' for production frontend)");
 }
 
-// Database Connection (Creates file 'matab_yar.db' automatically)
-const db = new sqlite3.Database('./matab_yar.db', (err) => {
+// Database Connection
+const dbPath = path.join(__dirname, 'matab_yar.db');
+const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
-    console.error('Error opening database', err.message);
+    console.error('Error opening database:', err.message);
   } else {
-    console.log('Connected to the SQLite database (matab_yar.db).');
+    console.log('Connected to SQLite database.');
     initDb();
   }
 });
 
-// Initialize Tables
+// Initialize Database from SQL File
 function initDb() {
-  db.serialize(() => {
-    // 1. Patients
-    db.run(`CREATE TABLE IF NOT EXISTS patients (
-      patient_id INTEGER PRIMARY KEY AUTOINCREMENT,
-      first_name TEXT NOT NULL,
-      last_name TEXT NOT NULL,
-      national_code TEXT UNIQUE NOT NULL,
-      birth_date TEXT,
-      phone_number TEXT,
-      gender TEXT
-    )`);
+  const schemaPath = path.join(__dirname, 'db_schema.sql');
+  
+  if (fs.existsSync(schemaPath)) {
+      const schema = fs.readFileSync(schemaPath, 'utf8');
+      db.exec(schema, (err) => {
+          if (err) {
+              console.error("Error executing schema:", err.message);
+          } else {
+              console.log("Database tables initialized from db_schema.sql");
+              seedAdmin();
+          }
+      });
+  } else {
+      console.warn("⚠️ db_schema.sql not found! Database might not be initialized correctly.");
+  }
+}
 
-    // 2. Doctors
-    db.run(`CREATE TABLE IF NOT EXISTS doctors (
-      doctor_id INTEGER PRIMARY KEY AUTOINCREMENT,
-      first_name TEXT NOT NULL,
-      last_name TEXT NOT NULL,
-      national_code TEXT UNIQUE NOT NULL,
-      specialty TEXT,
-      medical_system_number TEXT UNIQUE,
-      work_days TEXT,
-      password TEXT
-    )`);
-
-    // 3. Personnel
-    db.run(`CREATE TABLE IF NOT EXISTS personnel (
-      national_code TEXT PRIMARY KEY,
-      first_name TEXT NOT NULL,
-      last_name TEXT NOT NULL,
-      role TEXT NOT NULL,
-      password TEXT
-    )`, (err) => {
-        if (!err) {
-            // Seed Admin (INSERT OR IGNORE for SQLite)
-            db.run(`INSERT OR IGNORE INTO personnel (national_code, first_name, last_name, role, password) 
-            VALUES ('admin', 'مدیر', 'سیستم', 'مدیر', '123')`);
-        }
+function seedAdmin() {
+    // Seed Admin (INSERT OR IGNORE)
+    const sql = `INSERT OR IGNORE INTO personnel (national_code, first_name, last_name, role, password) 
+                 VALUES ('admin', 'مدیر', 'سیستم', 'مدیر', '123')`;
+    db.run(sql, (err) => {
+        if (err) console.error("Error seeding admin:", err.message);
     });
-
-    // 4. Medicines
-    db.run(`CREATE TABLE IF NOT EXISTS medicines (
-      medicine_id INTEGER PRIMARY KEY AUTOINCREMENT,
-      medicine_name TEXT NOT NULL,
-      dosage_medicine_name TEXT,
-      dosage_count INTEGER DEFAULT 1,
-      consumption_time TEXT,
-      description TEXT
-    )`);
-
-    // 5. Appointments
-    db.run(`CREATE TABLE IF NOT EXISTS appointments (
-      appointment_id INTEGER PRIMARY KEY AUTOINCREMENT,
-      tracking_code TEXT UNIQUE NOT NULL,
-      patient_id INTEGER,
-      doctor_id INTEGER,
-      reserved_date TEXT NOT NULL,
-      reserved_time TEXT NOT NULL,
-      status TEXT DEFAULT 'Pending',
-      created_at TEXT,
-      FOREIGN KEY(patient_id) REFERENCES patients(patient_id) ON DELETE CASCADE,
-      FOREIGN KEY(doctor_id) REFERENCES doctors(doctor_id) ON DELETE CASCADE
-    )`);
-
-    // 6. Medical Records
-    db.run(`CREATE TABLE IF NOT EXISTS medical_records (
-      record_id INTEGER PRIMARY KEY AUTOINCREMENT,
-      patient_id INTEGER,
-      doctor_id INTEGER,
-      personnel_national_code TEXT,
-      medicine_id INTEGER,
-      visit_date TEXT,
-      specialty TEXT,
-      chief_complaint TEXT,
-      description TEXT,
-      created_at TEXT,
-      FOREIGN KEY(patient_id) REFERENCES patients(patient_id) ON DELETE SET NULL,
-      FOREIGN KEY(doctor_id) REFERENCES doctors(doctor_id) ON DELETE SET NULL,
-      FOREIGN KEY(personnel_national_code) REFERENCES personnel(national_code) ON DELETE SET NULL,
-      FOREIGN KEY(medicine_id) REFERENCES medicines(medicine_id) ON DELETE SET NULL
-    )`);
-  });
 }
 
 // --- API ENDPOINTS ---
@@ -131,7 +72,6 @@ function initDb() {
 app.post('/api/login', (req, res) => {
   const { username, password, role } = req.body;
   
-  // Check Personnel table
   db.get(`SELECT * FROM personnel WHERE national_code = ? AND password = ?`, [username, password], (err, row) => {
     if (err) return res.status(500).json({ error: err.message });
     
@@ -140,7 +80,6 @@ app.post('/api/login', (req, res) => {
       return res.json(row);
     }
 
-    // Check Doctors table
     db.get(`SELECT * FROM doctors WHERE national_code = ? AND password = ?`, [username, password], (err, docRow) => {
       if (err) return res.status(500).json({ error: err.message });
       if (docRow) {
@@ -213,7 +152,6 @@ app.get('/api/patients', (req, res) => {
 app.get('/api/patients/:code', (req, res) => {
     db.get("SELECT * FROM patients WHERE national_code = ?", [req.params.code], (err, row) => {
       if (err) return res.status(500).json({ error: err.message });
-      // FIX: Return null explicitly if undefined to ensure valid JSON is sent
       res.json(row || null);
     });
 });
@@ -331,15 +269,12 @@ app.post('/api/appointments', (req, res) => {
     const { patient_id, doctor_id, reserved_date, reserved_time, created_at } = req.body;
     let { tracking_code, status } = req.body;
 
-    // Fix: Generate tracking code if missing
     if (!tracking_code) {
         tracking_code = Math.floor(10000000 + Math.random() * 90000000).toString();
     }
     
-    // Default status
     if (!status) status = 'Pending';
     
-    // Check availability
     db.all(`SELECT * FROM appointments WHERE doctor_id=? AND reserved_date=? AND reserved_time=? AND status != 'Canceled'`,
         [doctor_id, reserved_date, reserved_time],
         (err, rows) => {
@@ -405,7 +340,6 @@ app.get('/api/medical_records', (req, res) => {
 
 app.post('/api/medical_records', (req, res) => {
     const { patient_id, doctor_id, personnel_national_code, medicine_id, visit_date, specialty, chief_complaint, description, created_at } = req.body;
-    // Fix: Handle empty medicine_id by converting to null
     const finalMedicineId = medicine_id || null;
     
     db.run(`INSERT INTO medical_records (patient_id, doctor_id, personnel_national_code, medicine_id, visit_date, specialty, chief_complaint, description, created_at) VALUES (?,?,?,?,?,?,?,?,?)`,
@@ -419,7 +353,6 @@ app.post('/api/medical_records', (req, res) => {
 
 app.put('/api/medical_records/:id', (req, res) => {
     const { chief_complaint, description, medicine_id } = req.body;
-    // Fix: Handle empty medicine_id by converting to null
     const finalMedicineId = medicine_id || null;
     
     db.run(`UPDATE medical_records SET chief_complaint=?, description=?, medicine_id=? WHERE record_id=?`,
@@ -431,37 +364,31 @@ app.put('/api/medical_records/:id', (req, res) => {
     );
 });
 
-// --- SPA Fallback for Production ---
-// This must be the LAST route.
+// SPA Fallback
 app.get('*', (req, res) => {
   if (fs.existsSync(distPath)) {
     res.sendFile(path.join(distPath, 'index.html'));
   } else {
-    res.status(404).send("Frontend build not found. If you are in dev mode, check port 5173.");
+    res.status(404).send("Frontend build not found. Running in API-only mode.");
   }
 });
 
-// Bind to 0.0.0.0 to allow access from local network
+// Start Server
 app.listen(PORT, '0.0.0.0', () => {
-    // Detect and print the local IP address for the user
     const interfaces = os.networkInterfaces();
     let lanIp = 'localhost';
     
     for (const name of Object.keys(interfaces)) {
         for (const iface of interfaces[name]) {
-            // Skip internal (127.0.0.1) and non-IPv4 addresses
-            if ('IPv4' !== iface.family || iface.internal) {
-                continue;
+            if ('IPv4' === iface.family && !iface.internal) {
+                lanIp = iface.address;
             }
-            // Usually the first external IPv4 is the LAN IP
-            lanIp = iface.address;
         }
     }
 
     console.log('\n==================================================');
-    console.log(`🚀 APPLICATION IS READY!`);
-    console.log(`💻 On this PC:      http://localhost:${PORT}`);
-    console.log(`📱 On your Mobile:  http://${lanIp}:${PORT}`);
-    console.log('==================================================');
-    console.log(`(NOTE: If mobile cannot connect, turn off Windows Firewall)\n`);
+    console.log(`🚀 SERVER RUNNING WITH SQLITE!`);
+    console.log(`💻 Local:           http://localhost:${PORT}`);
+    console.log(`📱 Network:         http://${lanIp}:${PORT}`);
+    console.log('==================================================\n');
 });
