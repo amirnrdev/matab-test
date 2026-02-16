@@ -22,9 +22,6 @@ app.use(express.json());
 const distPath = path.join(__dirname, 'dist');
 if (fs.existsSync(distPath)) {
     app.use(express.static(distPath));
-} else {
-    // Development mode warning
-    console.log("   [INFO] 'dist' folder not found. Serving API only. (Run 'npm run build' for production frontend)");
 }
 
 // Database Connection
@@ -33,7 +30,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
     console.error('Error opening database:', err.message);
   } else {
-    console.log('Connected to SQLite database.');
+    // console.log('Connected to SQLite database.'); // Optional: commented out for cleaner logs
     initDb();
   }
 });
@@ -48,12 +45,9 @@ function initDb() {
           if (err) {
               console.error("Error executing schema:", err.message);
           } else {
-              console.log("Database tables initialized from db_schema.sql");
               seedAdmin();
           }
       });
-  } else {
-      console.warn("⚠️ db_schema.sql not found! Database might not be initialized correctly.");
   }
 }
 
@@ -375,20 +369,5 @@ app.get('*', (req, res) => {
 
 // Start Server
 app.listen(PORT, '0.0.0.0', () => {
-    const interfaces = os.networkInterfaces();
-    let lanIp = 'localhost';
-    
-    for (const name of Object.keys(interfaces)) {
-        for (const iface of interfaces[name]) {
-            if ('IPv4' === iface.family && !iface.internal) {
-                lanIp = iface.address;
-            }
-        }
-    }
-
-    console.log('\n==================================================');
-    console.log(`🚀 SERVER RUNNING WITH SQLITE!`);
-    console.log(`💻 Local:           http://localhost:${PORT}`);
-    console.log(`📱 Network:         http://${lanIp}:${PORT}`);
-    console.log('==================================================\n');
+    // console.log(`Server started on port ${PORT}`); 
 });
