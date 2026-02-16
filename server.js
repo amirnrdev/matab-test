@@ -1,8 +1,10 @@
+
 import express from 'express';
 import sqlite3 from 'sqlite3';
 import cors from 'cors';
 import os from 'os'; // Added to detect IP address
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 
 // Fix for ES Modules path resolution
@@ -16,8 +18,17 @@ const PORT = process.env.PORT || 3001; // Support environment port for hosting
 app.use(cors());
 app.use(express.json());
 
-// Serve Static Files (Frontend) - IMPORTANT FOR PRODUCTION
-app.use(express.static(path.join(__dirname, 'dist')));
+// Check if dist exists for static serving
+const distPath = path.join(__dirname, 'dist');
+if (fs.existsSync(distPath)) {
+    // Serve Static Files (Frontend) - IMPORTANT FOR PRODUCTION
+    app.use(express.static(distPath));
+} else {
+    console.warn(`\n⚠️  WARNING: 'dist' directory not found at ${distPath}`);
+    console.warn("   The backend is running, but the frontend static files are missing.");
+    console.warn("   -> If you are in DEVELOPMENT: This is fine. Access the app via the Vite URL (usually port 5173).");
+    console.warn("   -> If you are in PRODUCTION: Run 'npm run build' first.\n");
+}
 
 // Database Connection (Creates file 'matab_yar.db' automatically)
 const db = new sqlite3.Database('./matab_yar.db', (err) => {
@@ -423,7 +434,11 @@ app.put('/api/medical_records/:id', (req, res) => {
 // --- SPA Fallback for Production ---
 // This must be the LAST route.
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+  if (fs.existsSync(distPath)) {
+    res.sendFile(path.join(distPath, 'index.html'));
+  } else {
+    res.status(404).send("Frontend build not found. If you are in dev mode, check port 5173.");
+  }
 });
 
 // Bind to 0.0.0.0 to allow access from local network

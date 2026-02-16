@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
 import { db } from '../services/mockDb';
 import { Doctor, Appointment } from '../types';
-import { User, Check, CheckCircle, Copy, ArrowRight, ArrowLeft, Activity, CalendarDays, UserPlus, Clock, Phone, FileText, Stethoscope, ChevronLeft, ChevronRight, Home, X, Calendar } from 'lucide-react';
+import { User, Check, CheckCircle, CheckCircle2, Copy, ArrowRight, ArrowLeft, Activity, CalendarDays, UserPlus, Clock, Phone, FileText, Stethoscope, ChevronLeft, ChevronRight, Home, X, Calendar, Search } from 'lucide-react';
 
 const Timeline = ({ step }: { step: number }) => {
   const steps = [
@@ -51,11 +52,12 @@ const BookingView: React.FC = () => {
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
-  const [takenSlots, setTakenSlots] = useState<string[]>([]); // New State for taken slots
+  const [takenSlots, setTakenSlots] = useState<string[]>([]);
   const [createdAppointment, setCreatedAppointment] = useState<Appointment | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loadingDocs, setLoadingDocs] = useState(true);
   
+  // Patient Form State
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -64,6 +66,7 @@ const BookingView: React.FC = () => {
     phone: '',
     gender: 'Male'
   });
+  const [isCheckingPatient, setIsCheckingPatient] = useState(false);
 
   // Date Picker States
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -77,7 +80,6 @@ const BookingView: React.FC = () => {
     'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'
   ];
 
-  // Generate years from 1300 to 1403
   const years = Array.from({ length: 104 }, (_, i) => 1403 - i);
   const days = Array.from({ length: 31 }, (_, i) => i + 1);
 
@@ -94,7 +96,7 @@ const BookingView: React.FC = () => {
     loadDocs();
   }, []);
 
-  // Fetch taken slots when doctor or date changes
+  // Fetch taken slots
   useEffect(() => {
     if (selectedDoctor && selectedDate) {
       db.getTakenSlots(selectedDoctor.doctor_id, selectedDate).then(setTakenSlots);
@@ -109,6 +111,31 @@ const BookingView: React.FC = () => {
     setSelectedDate('');
     setSelectedTime('');
     setTakenSlots([]);
+  };
+
+  const checkPatient = async () => {
+    if (formData.nationalCode.length >= 8) {
+        setIsCheckingPatient(true);
+        setMessage(null);
+        try {
+            const p = await db.findPatientByNationalCode(formData.nationalCode);
+            if (p) {
+                setFormData(prev => ({
+                    ...prev,
+                    firstName: p.first_name,
+                    lastName: p.last_name,
+                    phone: p.phone_number,
+                    birthDate: p.birth_date || '',
+                    gender: p.gender
+                }));
+                setMessage({ type: 'success', text: 'اطلاعات شما در سیستم یافت شد و به صورت خودکار پر گردید.' });
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setIsCheckingPatient(false);
+        }
+    }
   };
 
   const generateTimeSlots = () => {
@@ -418,6 +445,24 @@ const BookingView: React.FC = () => {
            </div>
 
            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 animate-item" style={{animationDelay: '200ms'}}>
+               <div className="relative group col-span-full md:col-span-2">
+                 <label className="text-[10px] font-bold text-stone-500 dark:text-stone-400 mb-1.5 block mr-1 flex justify-between">
+                     <span>کد ملی</span>
+                     {isCheckingPatient && <span className="text-blue-500 flex items-center gap-1"><span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span> در حال بررسی...</span>}
+                 </label>
+                 <div className="relative">
+                    <input 
+                    dir="ltr"
+                    className="p-3 pr-4 pl-10 glass-input rounded-xl w-full outline-none text-right font-mono text-sm font-bold focus:ring-2 focus:ring-stone-400 dark:focus:ring-stone-500"
+                    value={formData.nationalCode}
+                    onChange={(e) => setFormData({...formData, nationalCode: e.target.value})}
+                    onBlur={checkPatient}
+                    placeholder="برای پر شدن خودکار وارد کنید"
+                    />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400 opacity-50" />
+                 </div>
+              </div>
+           
               <div className="relative group">
                  <label className="text-[10px] font-bold text-stone-500 dark:text-stone-400 mb-1.5 block mr-1">نام</label>
                  <input 
@@ -438,15 +483,6 @@ const BookingView: React.FC = () => {
 
            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 animate-item" style={{animationDelay: '300ms'}}>
               <div className="relative group">
-                 <label className="text-[10px] font-bold text-stone-500 dark:text-stone-400 mb-1.5 block mr-1">کد ملی</label>
-                 <input 
-                   dir="ltr"
-                   className="p-3 pr-4 glass-input rounded-xl w-full outline-none text-right font-mono text-sm font-bold"
-                   value={formData.nationalCode}
-                   onChange={(e) => setFormData({...formData, nationalCode: e.target.value})}
-                 />
-              </div>
-              <div className="relative group">
                  <label className="text-[10px] font-bold text-stone-500 dark:text-stone-400 mb-1.5 block mr-1">شماره تماس</label>
                  <input 
                    dir="ltr"
@@ -455,10 +491,7 @@ const BookingView: React.FC = () => {
                    onChange={(e) => setFormData({...formData, phone: e.target.value})}
                  />
               </div>
-           </div>
-
-           <div className="mb-8 animate-item" style={{animationDelay: '400ms'}}>
-               <div className="relative group cursor-pointer" onClick={() => setShowDatePicker(true)}>
+              <div className="relative group cursor-pointer" onClick={() => setShowDatePicker(true)}>
                   <label className="text-[10px] font-bold text-stone-500 dark:text-stone-400 mb-1.5 block mr-1">تاریخ تولد (شمسی)</label>
                   <div className="relative">
                     <input 
@@ -586,7 +619,8 @@ const BookingView: React.FC = () => {
            )}
 
            {message && (
-             <div className={`mb-6 p-4 rounded-xl text-xs font-bold text-center animate-item ${message.type === 'error' ? 'bg-red-50/50 text-red-600' : 'bg-green-50/50 text-green-700'}`}>
+             <div className={`mb-6 p-4 rounded-xl text-xs font-bold text-center animate-item flex items-center justify-center gap-2 ${message.type === 'error' ? 'bg-red-50/50 text-red-600' : 'bg-green-50/50 text-green-700'}`}>
+               {message.type === 'success' && <CheckCircle2 className="w-4 h-4" />}
                {message.text}
              </div>
            )}

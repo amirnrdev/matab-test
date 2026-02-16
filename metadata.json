@@ -1,5 +1,5 @@
 {
-  "name": "Matab Yar - Clinic Management",
+  "name": "Matab Yar",
   "description": "A modern appointment scheduling and clinic management system based on a specific SQL schema, featuring booking, doctor dashboards, and medical records.",
   "requestFramePermissions": []
 }

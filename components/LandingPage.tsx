@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { UserCog, Stethoscope, ArrowRight, Activity, ShieldCheck, HeartPulse } from 'lucide-react';
 
@@ -55,21 +56,6 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, isDarkMode, toggleTh
            </button>
         </div>
 
-        {/* Features / Footer */}
-        <div className="flex flex-wrap justify-center gap-4 md:gap-8 pt-8 opacity-60">
-           <div className="flex items-center gap-2 text-xs font-bold text-stone-500 dark:text-stone-400 bg-white/30 dark:bg-black/20 px-4 py-2 rounded-full backdrop-blur-sm">
-              <ShieldCheck className="w-4 h-4" />
-              <span>امنیت داده‌ها</span>
-           </div>
-           <div className="flex items-center gap-2 text-xs font-bold text-stone-500 dark:text-stone-400 bg-white/30 dark:bg-black/20 px-4 py-2 rounded-full backdrop-blur-sm">
-              <Activity className="w-4 h-4" />
-              <span>پشتیبانی ۲۴/۷</span>
-           </div>
-           <div className="flex items-center gap-2 text-xs font-bold text-stone-500 dark:text-stone-400 bg-white/30 dark:bg-black/20 px-4 py-2 rounded-full backdrop-blur-sm">
-              <HeartPulse className="w-4 h-4" />
-              <span>خدمات درمانی</span>
-           </div>
-        </div>
       </div>
 
     </div>

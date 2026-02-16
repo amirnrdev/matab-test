@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState } from 'react';
 import { db } from '../services/mockDb';
 import { Personnel, ThemeType } from '../types';
-import { Stethoscope, ChevronDown, User, Moon, Sun, ShieldCheck, LogIn, Lock, Home, Wifi, WifiOff } from 'lucide-react';
+import { Stethoscope, ChevronDown, User, Moon, Sun, ShieldCheck, LogIn, Lock, Home } from 'lucide-react';
 
 interface LoginViewProps {
   onLogin: (user: Personnel) => void;
@@ -17,12 +18,6 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onBack, isDarkMode, togg
   const [role, setRole] = useState('مدیر');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isConnected, setIsConnected] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    // Check connection to API on mount for diagnostics
-    db.checkConnection().then(setIsConnected);
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -158,14 +153,6 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onBack, isDarkMode, togg
               {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
            </button>
         )}
-
-        {/* Connection Diagnostics Footer */}
-        <div className="absolute bottom-2 left-0 right-0 text-center animate-item" style={{animationDelay: '500ms'}}>
-            <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-mono border ${isConnected ? 'bg-green-50/50 text-green-600 border-green-200' : 'bg-red-50/50 text-red-600 border-red-200'} opacity-60 hover:opacity-100 transition-opacity`}>
-               {isConnected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
-               <span dir="ltr">{db.getApiUrl().replace('http://', '')}</span>
-            </div>
-        </div>
 
       </div>
     </div>

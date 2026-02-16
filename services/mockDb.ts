@@ -1,3 +1,4 @@
+
 import { 
   Doctor, 
   Patient, 
@@ -9,28 +10,11 @@ import {
 } from '../types';
 
 // Dynamic API URL Logic
-// In production (when served by node), we use relative path '/api'.
-// In development, we fallback to localhost or custom IP.
+// We use a relative path '/api' to rely on:
+// 1. Vite Proxy (in Development) -> forwards to http://localhost:3001
+// 2. Express Static Serve (in Production) -> serves from same origin
 const getBaseUrl = () => {
-  try {
-    // Safe check for import.meta.env using a try-catch block and explicit checks
-    // This prevents "Cannot read properties of undefined (reading 'PROD')"
-    // @ts-ignore
-    if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.PROD) {
-      return '/api';
-    }
-  } catch (e) {
-    // Ignore any environment access errors
-    console.warn('Environment check failed, falling back to development URL logic.');
-  }
-
-  // Development Fallback
-  if (typeof window !== 'undefined') {
-     const custom = localStorage.getItem('MATAB_API_URL');
-     if (custom) return custom;
-     return `http://${window.location.hostname}:3001/api`;
-  }
-  return 'http://localhost:3001/api';
+  return '/api';
 };
 
 const API_URL = getBaseUrl();
@@ -72,8 +56,9 @@ async function tryFetch<T>(url: string, options: RequestInit | undefined, fallba
     return text ? JSON.parse(text) : null;
   } catch (err: any) {
     // If connection failed entirely (Network Error / Failed to fetch), use fallback
-    if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
-       console.warn(`Server unreachable (${url}), using mock fallback.`);
+    // We log a clear warning that we are switching to offline mode
+    if (err.message === 'Failed to fetch' || err.name === 'TypeError' || err.message.includes('NetworkError')) {
+       console.warn(`Server unreachable (${url}), using offline mock data.`);
        return await fallback();
     }
     throw err;
